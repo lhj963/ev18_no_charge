@@ -71,12 +71,6 @@ typedef unsigned char u8;
 
 #define M_DEBUG							(1)				/* debug开关 */
 
-/* Default off. Platform frames must not build a shell wget unless this is set
- * and platform_remote_wget_allowed() accepts the URL. */
-#ifndef ENABLE_PLATFORM_REMOTE_WGET
-#define ENABLE_PLATFORM_REMOTE_WGET		(0)
-#endif
-
 /* 打印重定义 */
 #if M_DEBUG > 0
 #define M_COMM_DEBUG(module, format,...)  	DBG_Print(LEVEL_GPRS, "[%s][%s][%d] debug: "format"\r\n", module, __func__, __LINE__, ##__VA_ARGS__)

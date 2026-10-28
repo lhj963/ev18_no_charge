@@ -7408,10 +7408,8 @@ void ota_ctrl(INT8U linkid,INT8U cmd,void *content,unsigned int contentlen)
 	INT8U buf[64] = {0};
 	unsigned char ack[13] = {0};
 	unsigned int slen = 0;
-	char *pcmd = 0;
-	char *purl = 0;
-	unsigned char urllen = 0;
-	unsigned int templen = 0;
+	unsigned char *purl = 0;
+	unsigned int urllen = 0;
 	unsigned char *pcontent = (unsigned char *)content;
 	INT8U subcmd = 0;
 	INT8U can_src_addr = 0;				//CAN 网络源地址 EF 表示VCU C8 标识BMS  EE 表示MCU
@@ -7438,74 +7436,59 @@ void ota_ctrl(INT8U linkid,INT8U cmd,void *content,unsigned int contentlen)
 	DBG_PrintBuf(LEVEL2,0,buf,slen);
 	send_msg(S_MSG_SEND_TO_SERVER,(void *)linkid,buf,(void *)slen);
 
-	pcmd = os_malloc(1536);
-	if (pcmd)
+	purl = (unsigned char *)_find_sub_str(pcontent + 10,contentlen - 10,"ftp://",strlen("ftp://"));
+	if (purl && (purl > pcontent))
 	{
-		purl = _find_sub_str(pcontent + 10,contentlen - 10,"ftp://",strlen("ftp://"));
-		if (purl)
-		{
-			urllen = *(purl - 1);
-			if (urllen && (urllen < 250))
-			{
-				//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
+		const char *dest = 0;
 
-				if (cmd == 0xA5)			//TBOX ota
+		urllen = *(purl - 1);
+		if (urllen && (urllen < 250) &&
+			(((unsigned int)(purl - pcontent) + urllen) <= contentlen))
+		{
+			if (cmd == 0xA5)			//TBOX ota
+			{
+				if (subcmd == 0x52)
 				{
-					if (subcmd == 0x52)
+					dest = "box.bin";
+				}
+			}
+			else if (cmd == 0xA0)		//零部件OTA
+			{
+				if (subcmd == 0xC4)
+				{
+					sandian_set_update_type(SANDIAN_UPDATE_TYPE_SHENGJI);
+					sandian_set_update_way(SANDIAN_UPDATE_WAY_PUTONG);
+					if (can_src_addr == 0xEE) 		//MCU
 					{
-						templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_MCU);
+						dest = "sandian_mcu.zip";
+					}
+					else if (can_src_addr == 0xC8)	//BMS
+					{
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_BMS);
+						dest = "sandian_bms.zip";
+					}
+					else if (can_src_addr == 0xEF)	//VCU
+					{
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_VCU);
+						dest = "sandian_vcu.zip";
 					}
 				}
-				else if (cmd == 0xA0)		//零部件OTA
-				{
-					if (subcmd == 0xC4)
-					{
-						sandian_set_update_type(SANDIAN_UPDATE_TYPE_SHENGJI);
-						sandian_set_update_way(SANDIAN_UPDATE_WAY_PUTONG);
-						if (can_src_addr == 0xEE) 		//MCU
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_MCU);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_mcu.zip ");
-						}
-						else if (can_src_addr == 0xC8)	//BMS
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_BMS);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_bms.zip ");
-						}
-						else if (can_src_addr == 0xEF)	//VCU
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_VCU);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_vcu.zip ");
-						}
-					}
-				}
-
-				memcpy(pcmd + templen,purl,urllen);
-				templen += urllen;
-
-				pcmd[templen++] = '>';
-				pcmd[templen] = 0;
 			}
-		}
-		else
-		{
-			DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-			//purl = _find_sub_str(pcontent + 10,contentlen - 10,"http://",strlen("http://"));
-		}
 
-		if (purl)
-		{
-			DBG_Print(0,"[exe cmd]%s\r\n",pcmd);
-			if (platform_remote_wget_allowed(pcmd))
+			if (dest && platform_ota_download(dest, purl, urllen))
 			{
-				send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
+				DBG_Print(0,"platform ota wget %s\r\n", dest);
 			}
-			else
+			else if (dest)
 			{
-				DBG_Print(LEVEL0,"reject platform remote wget\r\n");
+				DBG_Print(LEVEL0,"reject platform ota url\r\n");
 			}
 		}
-		os_free(pcmd);
+	}
+	else
+	{
+		DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
 	}
 }
 
@@ -7984,88 +7967,67 @@ void gb32960_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_w
 
 			if (subcmd == 0xC8) 		//tbox ota
 			{
-				char *pcmd = 0;
-				char *pusr = 0;
-				char *psw = 0;
-				char *purl = 0;
-				unsigned char urllen = 0;
-				unsigned char usrlen = 0;
-				unsigned char pswlen = 0;
-				unsigned int templen = 0;
+				unsigned char *pusr = 0;
+				unsigned char *psw = 0;
+				unsigned char *purl = 0;
+				unsigned int urllen = 0;
+				unsigned int usrlen = 0;
+				unsigned int pswlen = 0;
+				unsigned char *base = ptr;
+				int started = 0;
 
-				pcmd = os_malloc(1536);
-				if (pcmd)
 				{
-					purl = _find_sub_str(ptr + 10,16,"ftp://",strlen("ftp://"));
-					if (purl)
+					unsigned int look = contentlen - 10;
+					if (look > 16) look = 16;
+					purl = (unsigned char *)_find_sub_str(ptr + 10,look,"ftp://",strlen("ftp://"));
+				}
+				if (purl && (purl > base))
+				{
+					urllen = *(purl - 1);
+					if ((urllen >= strlen("ftp://")) &&
+						(((unsigned int)(purl - base) + urllen) < contentlen))
+					{
+						usrlen = purl[urllen];
+						pusr = purl + urllen + 1;
+						if (((unsigned int)(pusr - base) + usrlen) < contentlen)
+						{
+							pswlen = pusr[usrlen];
+							psw = pusr + usrlen + 1;
+							if ((usrlen < 144) && (pswlen < 144) &&
+								(((unsigned int)(psw - base) + pswlen) <= contentlen))
+							{
+								started = platform_ota_download_ftp_auth("box.bin",
+									purl, urllen, pusr, usrlen, psw, pswlen);
+							}
+						}
+					}
+				}
+				else
+				{
+					{
+						unsigned int look = contentlen - 10;
+						if (look > 16) look = 16;
+						purl = (unsigned char *)_find_sub_str(ptr + 10,look,"http://",strlen("http://"));
+					}
+					if (purl && (purl > base))
 					{
 						urllen = *(purl - 1);
-
-						pusr = purl + urllen + 1;
-						usrlen = *(purl + urllen);
-
-						psw = pusr + usrlen + 1;
-						pswlen = *(purl + urllen + 1 + usrlen);
-
-						if ((urllen >= strlen("ftp://")) && (usrlen < 144) && (pswlen < 144))
+						if (urllen && (urllen < 450) &&
+							(((unsigned int)(purl - base) + urllen) <= contentlen))
 						{
-							//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://");
-							memcpy(pcmd + templen,pusr,usrlen);
-							templen += usrlen;
-							pcmd[templen++] = ':';
-							
-							memcpy(pcmd + templen,psw,pswlen);
-							templen += pswlen;
-							pcmd[templen++] = '@';
-							
-							memcpy(pcmd + templen,purl + strlen("ftp://"),(urllen - strlen("ftp://")));
-							templen += (urllen - strlen("ftp://")); 						
-
-							pcmd[templen++] = '>';
-
-							pcmd[templen] = 0;
-							//DBG_Print(LEVEL1,"usr:%s psw:%s url:%s\r\n",pusr,psw,purl);
-							//DBG_Print(LEVEL1,"exe cmd:%s\r\n",pcmd);
-
+							started = platform_ota_download("box.bin", purl, urllen);
 						}
 					}
-					else
-					{
-						//DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-						purl = _find_sub_str(ptr + 10,16,"http://",strlen("http://"));
-						if (purl)
-						{
-							//ATEX=<linuxcmd:wget -O /data/box.bin http://129.211.170.236/BYSD_Z2021_MCU_V1.5.18BYSD_Z2021_MPU_V1.0.17.bin>
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
-							if (*(purl - 1) < 450)
-							{
-								memcpy(pcmd + templen,purl,*(purl - 1));
-								templen += *(purl - 1);
-								pcmd[templen++] = '>';
-								pcmd[templen] = 0;
-							}
-							else
-							{
-								purl = 0;
-							}
-						}
-					}
+				}
 
-					if (purl)
-					{
-						DBG_Print(LEVEL1,"exe cmd:%s\r\n",pcmd);
-						if (platform_remote_wget_allowed(pcmd))
-						{
-							send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
-							mcu_start_update_flag = 1;
-						}
-						else
-						{
-							DBG_Print(LEVEL0,"reject platform remote wget\r\n");
-						}
-					}
-					os_free(pcmd);
+				if (started)
+				{
+					DBG_Print(LEVEL1,"platform ota wget box.bin\r\n");
+					mcu_start_update_flag = 1;
+				}
+				else if (purl)
+				{
+					DBG_Print(LEVEL0,"reject platform ota url\r\n");
 				}
 			}
 			else if (subcmd == 0xC4)

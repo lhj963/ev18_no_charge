@@ -1,4 +1,8 @@
 #include "func.h"
+#include <spawn.h>
+#include <unistd.h>
+
+extern char **environ;
 
 
 typedef long long unsigned int INT64U;
@@ -366,92 +370,227 @@ INT8U bcd_to_dec(INT8U bcd)
 }
 
 
-#if ENABLE_PLATFORM_REMOTE_WGET
-static int platform_url_char_ok(unsigned char c)
-{
-	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
-	{
-		return 1;
-	}
-	switch (c)
-	{
-	case '.':
-	case '-':
-	case '_':
-	case '/':
-	case ':':
-	case '?':
-	case '=':
-	case '%':
-	case '~':
-	case '@':
-		return 1;
-	default:
-		return 0;
-	}
-}
-#endif
+#define PLATFORM_URL_MAX 600
 
-int platform_remote_wget_allowed(const char *cmd)
+static int platform_is_hex(unsigned char c)
 {
-#if !ENABLE_PLATFORM_REMOTE_WGET
-	(void)cmd;
+	if ((c >= '0') && (c <= '9')) return 1;
+	if ((c >= 'a') && (c <= 'f')) return 1;
+	if ((c >= 'A') && (c <= 'F')) return 1;
 	return 0;
-#else
-	static const char prefix[] = "ATEX=<linuxcmd:wget -O /data/";
-	static const char *files[] = {
-		"box.bin ",
-		"sandian_mcu.zip ",
-		"sandian_bms.zip ",
-		"sandian_vcu.zip "
-	};
-	const char *p = 0;
-	unsigned int i = 0;
-	unsigned int n = 0;
-	int file_ok = 0;
+}
 
-	if (cmd == 0)
+static int platform_userinfo_ok(const unsigned char *s, unsigned int n)
+{
+	unsigned int i = 0;
+	unsigned int colons = 0;
+
+	for (i = 0; i < n; i++)
 	{
-		return 0;
-	}
-	n = (unsigned int)strlen(prefix);
-	if (strncmp(cmd,prefix,n) != 0)
-	{
-		return 0;
-	}
-	p = cmd + n;
-	for (i = 0; i < (unsigned int)(sizeof(files) / sizeof(files[0])); i++)
-	{
-		unsigned int fl = (unsigned int)strlen(files[i]);
-		if (strncmp(p,files[i],fl) == 0)
+		unsigned char c = s[i];
+		if (c == ':')
 		{
-			p += fl;
-			file_ok = 1;
+			colons++;
+			if (colons > 1) return 0;
+			continue;
+		}
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '.' || c == '_' || c == '-')
+		{
+			continue;
+		}
+		return 0;
+	}
+	return 1;
+}
+
+static int platform_host_ok(const unsigned char *s, unsigned int n)
+{
+	unsigned int i = 0;
+	unsigned int alnum = 0;
+
+	if ((n == 0) || (n > 253)) return 0;
+	for (i = 0; i < n; i++)
+	{
+		unsigned char c = s[i];
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+		{
+			alnum++;
+			continue;
+		}
+		if ((c == '.') || (c == '-')) continue;
+		return 0;
+	}
+	return alnum > 0;
+}
+
+static int platform_dest_ok(const char *dest_name)
+{
+	static const char *names[] = {
+		"box.bin",
+		"sandian_mcu.zip",
+		"sandian_bms.zip",
+		"sandian_vcu.zip"
+	};
+	unsigned int i = 0;
+
+	if (dest_name == 0) return 0;
+	for (i = 0; i < (unsigned int)(sizeof(names) / sizeof(names[0])); i++)
+	{
+		if (strcmp(dest_name, names[i]) == 0) return 1;
+	}
+	return 0;
+}
+
+static int platform_url_ok(const unsigned char *url, unsigned int urllen)
+{
+	unsigned int scheme = 0;
+	unsigned int i = 0;
+	unsigned int slash = 0;
+	unsigned int at = 0;
+	unsigned int colon = 0;
+	unsigned int port = 0;
+
+	if ((url == 0) || (urllen < 8) || (urllen > PLATFORM_URL_MAX)) return 0;
+	if ((urllen >= 7) && (memcmp(url, "http://", 7) == 0)) scheme = 7;
+	else if ((urllen >= 6) && (memcmp(url, "ftp://", 6) == 0)) scheme = 6;
+	else return 0;
+
+	slash = urllen;
+	for (i = scheme; i < urllen; i++)
+	{
+		if (url[i] == '/')
+		{
+			slash = i;
 			break;
 		}
-	}
-	if (!file_ok)
-	{
-		return 0;
-	}
-	if ((strncmp(p,"http://",7) != 0) && (strncmp(p,"ftp://",6) != 0))
-	{
-		return 0;
-	}
-	n = (unsigned int)strlen(p);
-	if ((n < 8) || (n > 240) || (p[n - 1] != '>'))
-	{
-		return 0;
-	}
-	for (i = 0; i + 1 < n; i++)
-	{
-		if (!platform_url_char_ok((unsigned char)p[i]))
+		if ((url[i] == '?') || (url[i] == '#') || (url[i] == '\\') || (url[i] <= ' '))
 		{
 			return 0;
 		}
 	}
+
+	at = scheme;
+	for (i = scheme; i < slash; i++)
+	{
+		if (url[i] == '@') at = i;
+	}
+	if (at != scheme)
+	{
+		if (!platform_userinfo_ok(url + scheme, at - scheme)) return 0;
+		at++;
+	}
+
+	colon = slash;
+	for (i = at; i < slash; i++)
+	{
+		if (url[i] == ':')
+		{
+			colon = i;
+			break;
+		}
+	}
+	if (!platform_host_ok(url + at, colon - at)) return 0;
+	if (colon < slash)
+	{
+		if (colon + 1 >= slash) return 0;
+		port = 0;
+		for (i = colon + 1; i < slash; i++)
+		{
+			if ((url[i] < '0') || (url[i] > '9')) return 0;
+			port = port * 10 + (unsigned int)(url[i] - '0');
+			if (port > 65535) return 0;
+		}
+		if (port == 0) return 0;
+	}
+
+	for (i = slash; i < urllen; i++)
+	{
+		unsigned char c = url[i];
+		if (c == '%')
+		{
+			if ((i + 2 >= urllen) || !platform_is_hex(url[i + 1]) || !platform_is_hex(url[i + 2]))
+			{
+				return 0;
+			}
+			i += 2;
+			continue;
+		}
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '.' || c == '_' || c == '-' || c == '/')
+		{
+			continue;
+		}
+		return 0;
+	}
 	return 1;
-#endif
+}
+
+static int platform_wget_argv(char *dest, char *url)
+{
+	char *argv[6];
+	pid_t pid = 0;
+
+	argv[0] = "wget";
+	argv[1] = "-O";
+	argv[2] = dest;
+	argv[3] = "--";
+	argv[4] = url;
+	argv[5] = 0;
+	if (posix_spawnp(&pid, "wget", 0, 0, argv, environ) != 0)
+	{
+		return 0;
+	}
+	return 1;
+}
+
+int platform_ota_download(const char *dest_name, const void *url, unsigned int urllen)
+{
+	char dest[64];
+	char urlbuf[PLATFORM_URL_MAX + 1];
+
+	if (!platform_dest_ok(dest_name)) return 0;
+	if (!platform_url_ok((const unsigned char *)url, urllen)) return 0;
+	memcpy(urlbuf, url, urllen);
+	urlbuf[urllen] = 0;
+	if (snprintf(dest, sizeof(dest), "/data/%s", dest_name) <= 0) return 0;
+	return platform_wget_argv(dest, urlbuf);
+}
+
+int platform_ota_download_ftp_auth(const char *dest_name,
+	const void *url_with_scheme, unsigned int urllen,
+	const void *user, unsigned int userlen,
+	const void *pass, unsigned int passlen)
+{
+	unsigned char built[PLATFORM_URL_MAX + 1];
+	unsigned int n = 0;
+	const unsigned char *src = (const unsigned char *)url_with_scheme;
+
+	if ((src == 0) || (urllen < 6) || (memcmp(src, "ftp://", 6) != 0)) return 0;
+	if ((userlen > 144) || (passlen > 144)) return 0;
+	if ((user == 0) && (userlen != 0)) return 0;
+	if ((pass == 0) && (passlen != 0)) return 0;
+	if (!platform_userinfo_ok((const unsigned char *)user, userlen)) return 0;
+	if (!platform_userinfo_ok((const unsigned char *)pass, passlen)) return 0;
+	if ((6 + userlen + 1 + passlen + 1 + (urllen - 6)) > PLATFORM_URL_MAX) return 0;
+
+	memcpy(built, "ftp://", 6);
+	n = 6;
+	if (userlen)
+	{
+		memcpy(built + n, user, userlen);
+		n += userlen;
+	}
+	built[n++] = ':';
+	if (passlen)
+	{
+		memcpy(built + n, pass, passlen);
+		n += passlen;
+	}
+	built[n++] = '@';
+	memcpy(built + n, src + 6, urllen - 6);
+	n += (urllen - 6);
+	return platform_ota_download(dest_name, built, n);
 }
 
 INT8U XOR_Check(INT8U *pdat,INT32U len)

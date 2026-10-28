@@ -1585,48 +1585,33 @@ void anlyze_17691_server_data(unsigned int linkid,void *pbuf,unsigned int len)
 				}
 				else if ((pcontent[6] == 0x52) && (datunitlen > 16))		//OTA
 				{
-					char *pcmd = 0;
-					char *purl = 0;
-					unsigned char urllen = 0;
-					unsigned int templen = 0;
+					unsigned char *purl = 0;
+					unsigned int urllen = 0;
+					int started = 0;
 
-					pcmd = os_malloc(1536);
-					if (pcmd)
+					purl = (unsigned char *)_find_sub_str(pcontent + 10,datunitlen - 10,"ftp://",strlen("ftp://"));
+					if (purl == 0)
 					{
-						purl = _find_sub_str(pcontent + 10,datunitlen - 10,"ftp://",strlen("ftp://"));
-						if (purl)
-						{
-							urllen = *(purl - 1);
-							if (urllen < 250)
-							{
-								//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
-								templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
-
-								memcpy(pcmd + templen,purl,urllen);
-								templen += urllen;
-
-								pcmd[templen++] = '>';
-								pcmd[templen] = 0;
-							}
-						}
-						else
-						{
-							DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-							purl = _find_sub_str(pcontent + 10,datunitlen - 10,"http://",strlen("http://"));
-						}
-
-						if (purl && (templen > 0) && platform_remote_wget_allowed(pcmd))
-						{
-							DBG_Print(0,"[exe cmd]%s\r\n",pcmd);
-							send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
-						}
-						else if (purl)
-						{
-							DBG_Print(LEVEL0,"reject platform remote wget\r\n");
-						}
-						os_free(pcmd);
+						DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
+						purl = (unsigned char *)_find_sub_str(pcontent + 10,datunitlen - 10,"http://",strlen("http://"));
 					}
-
+					if (purl && (purl > pcontent))
+					{
+						urllen = *(purl - 1);
+						if (urllen && (urllen < 250) &&
+							(((unsigned int)(purl - pcontent) + urllen) <= datunitlen))
+						{
+							started = platform_ota_download("box.bin", purl, urllen);
+						}
+					}
+					if (started)
+					{
+						DBG_Print(0,"platform ota wget box.bin\r\n");
+					}
+					else if (purl)
+					{
+						DBG_Print(LEVEL0,"reject platform ota url\r\n");
+					}
 				}
 				else if (pcontent[6] == 0x53)		//È¡ÏûOTA
 				{
