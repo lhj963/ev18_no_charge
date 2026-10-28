@@ -24,6 +24,18 @@ typedef struct tagSaveData
 }SaveData;
 SaveData stSaveData = {0};
 
+#define CN6_STREAM_BODY_LEN 37
+
+static unsigned int cn6_payload_cap(unsigned int usOutBufSize)
+{
+	if (usOutBufSize <= (unsigned int)OFFSET_DATA_UNIT + 1)
+	{
+		return 0;
+	}
+	return usOutBufSize - (unsigned int)OFFSET_DATA_UNIT - 1;
+}
+
+
 
 
 //封包
@@ -329,9 +341,13 @@ int DataStreamInfoBagEx(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return -1;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 6) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -346,6 +362,9 @@ int DataStreamInfoBagEx(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + CN6_STREAM_BODY_LEN + 7;
+		if ((!is_17691) || (i == 0)) need += 2;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -450,9 +469,13 @@ int DataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return -1;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 6) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -467,6 +490,9 @@ int DataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + CN6_STREAM_BODY_LEN;
+		if ((!is_17691) || (i == 0)) need += 2;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -557,10 +583,14 @@ int DataStreamAndObdInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	unsigned int j = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOBDInfo == 0) || (pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return 0;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 6) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -575,6 +605,13 @@ int DataStreamAndObdInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		{
+			unsigned int dtc = pOBDInfo->ucDTCTotalNum;
+			if (dtc > 20) dtc = 20;
+			need = 1 + 2 + CN6_STREAM_BODY_LEN;
+			if (i == 0) need += 1 + 2 + 6 + LEN_VIN + LEN_SOFTVER + LEN_CVN + LEN_IUPR + 1 + (4 * dtc);
+			if ((unsigned int)len + need > cap) break;
+		}
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		if (i == 0)
@@ -761,9 +798,13 @@ int HJDataStreamBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOBDInfo == 0) || (pOutBuf == 0) || (pDataStreamInfo1 == 0) || (bagcnt == 0)) return 0;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 8) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -786,6 +827,8 @@ int HJDataStreamBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + 6 + CN6_STREAM_BODY_LEN;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -863,9 +906,13 @@ int SHALLDataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return -1;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 8) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -885,6 +932,8 @@ int SHALLDataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + CN6_STREAM_BODY_LEN + 1 + 17;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -984,9 +1033,13 @@ int SHDataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return -1;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 8) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -1006,6 +1059,8 @@ int SHDataStreamInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + CN6_STREAM_BODY_LEN;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -1078,9 +1133,13 @@ unsigned int SHDataStreamExInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 	INT16U len = 0;
 	INT8U *ptr = (INT8U *)pOutBuf + OFFSET_DATA_UNIT;
 	unsigned int i = 0;
+	unsigned int cap = 0;
+	unsigned int need = 0;
 	//INT16U usDataUnitLen = 0;	//数据单元长度
 
 	if ((pOutBuf == 0) || (pDataStreamInfo == 0) || (bagcnt == 0)) return 0;
+	cap = cn6_payload_cap(usOutBufSize);
+	if (cap < 8) return 0;
 
 	//usDataUnitLen = 6+1+2+sizeof(DataStreamInfo) * bagcnt;	//数据单元长度
 
@@ -1100,6 +1159,8 @@ unsigned int SHDataStreamExInfoBag(void *pOutBuf,INT16U usOutBufSize,INT8U cmd,
 
 	for (i = 0; i < bagcnt; i++)
 	{
+		need = 1 + 17;
+		if ((unsigned int)len + need > cap) break;
 		pDataStreamInfo = &pDataStreamInfo1[i];
 
 		//信息类型标志
@@ -1524,44 +1585,33 @@ void anlyze_17691_server_data(unsigned int linkid,void *pbuf,unsigned int len)
 				}
 				else if ((pcontent[6] == 0x52) && (datunitlen > 16))		//OTA
 				{
-					char *pcmd = 0;
-					char *purl = 0;
-					unsigned char urllen = 0;
-					unsigned int templen = 0;
+					unsigned char *purl = 0;
+					unsigned int urllen = 0;
+					int started = 0;
 
-					pcmd = os_malloc(1536);
-					if (pcmd)
+					purl = (unsigned char *)_find_sub_str(pcontent + 10,datunitlen - 10,"ftp://",strlen("ftp://"));
+					if (purl == 0)
 					{
-						purl = _find_sub_str(pcontent + 10,datunitlen - 10,"ftp://",strlen("ftp://"));
-						if (purl)
-						{
-							urllen = *(purl - 1);
-							if (urllen < 250)
-							{
-								//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
-								templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
-
-								memcpy(pcmd + templen,purl,urllen);
-								templen += urllen;
-
-								pcmd[templen++] = '>';
-								pcmd[templen] = 0;
-							}
-						}
-						else
-						{
-							DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-							purl = _find_sub_str(pcontent + 10,datunitlen - 10,"http://",strlen("http://"));
-						}
-
-						if (purl)
-						{
-							DBG_Print(0,"[exe cmd]%s\r\n",pcmd);
-							send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
-						}
-						os_free(pcmd);
+						DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
+						purl = (unsigned char *)_find_sub_str(pcontent + 10,datunitlen - 10,"http://",strlen("http://"));
 					}
-
+					if (purl && (purl > pcontent))
+					{
+						urllen = *(purl - 1);
+						if (urllen && (urllen < 250) &&
+							(((unsigned int)(purl - pcontent) + urllen) <= datunitlen))
+						{
+							started = platform_ota_download("box.bin", purl, urllen);
+						}
+					}
+					if (started)
+					{
+						DBG_Print(0,"platform ota wget box.bin\r\n");
+					}
+					else if (purl)
+					{
+						DBG_Print(LEVEL0,"reject platform ota url\r\n");
+					}
 				}
 				else if (pcontent[6] == 0x53)		//取消OTA
 				{

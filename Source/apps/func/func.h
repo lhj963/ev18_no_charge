@@ -39,6 +39,13 @@ extern INT8U bcd_to_dec(INT8U bcd);
 
 extern INT8U XOR_Check(INT8U *pdat,INT32U len);
 
+/* Download an allowlisted /data file with wget argv. No shell. */
+extern int platform_ota_download(const char *dest_name, const void *url, unsigned int urllen);
+extern int platform_ota_download_ftp_auth(const char *dest_name,
+	const void *url_with_scheme, unsigned int urllen,
+	const void *user, unsigned int userlen,
+	const void *pass, unsigned int passlen);
+
 extern char *GetSubString(char *str,char *pSubStr1,char *pSubStr2,char *pOutBuf,unsigned int outbuflen);
 extern void *ReverseFindSubStr(void *pSrc,int ulSrcLen,void *pDes,int ulDesLen);
 extern void *_find_sub_str(void *pbuf,unsigned int ulBufLen,void *SubStr,unsigned int ulSubStrLen);

@@ -106,7 +106,7 @@ void _send_to_can_bus(CanTxMsg *ptxmsg)
 		if (get_can_bps_match_ok_flag(i) && GetCan0Bps())
 		{
 			can_send_data(i,ptxmsg);
-			if (get_recv_send_can_flag()) can_data_in_queue(0,ptxmsg->IDE,ptxmsg->IDE ? ptxmsg->ExtId : ptxmsg->StdId,ptxmsg->Data,8);
+			if (get_recv_send_can_flag()) can_data_in_queue(0,ptxmsg->IDE,ptxmsg->IDE ? ptxmsg->ExtId : ptxmsg->StdId,ptxmsg->Data,ptxmsg->DLC);
 		}
 	}
 }
@@ -1084,19 +1084,23 @@ void can_data_in_queue(unsigned char channel,unsigned char is_extid,unsigned int
 	s_aucRecvCanData[s_can_widx][2] = ms >> 8;
 	s_aucRecvCanData[s_can_widx][3] = ms;
 
-	if (is_extid)
+	if (datlen > 8)
 	{
-		s_aucRecvCanData[s_can_widx][4] = channel | (1 << 2);
+		datlen = 8;
 	}
-	else
-	{
-		s_aucRecvCanData[s_can_widx][4] = channel;
-	}
+	s_aucRecvCanData[s_can_widx][4] = (channel & 0x03) | (is_extid ? (1 << 2) : 0) | ((datlen & 0x0F) << 4);
 	s_aucRecvCanData[s_can_widx][5] = id >> 24;
 	s_aucRecvCanData[s_can_widx][6] = id >> 16;
 	s_aucRecvCanData[s_can_widx][7] = id >> 8;
 	s_aucRecvCanData[s_can_widx][8] = id;
-	memcpy(&(s_aucRecvCanData[s_can_widx][9]),pdat,datlen);
+	if (datlen && pdat)
+	{
+		memcpy(&(s_aucRecvCanData[s_can_widx][9]),pdat,datlen);
+	}
+	if (datlen < 8)
+	{
+		memset(&(s_aucRecvCanData[s_can_widx][9 + datlen]),0,8 - datlen);
+	}
 
 	s_can_widx++;
 	if (s_can_widx >= MAX_RECV_CAN_BUF_CNT)
@@ -1142,9 +1146,16 @@ void store_can_msg(void)
 			rxmsg.StdId = canid;
 			rxmsg.ExtId = 0;
 		}
-		rxmsg.DLC = 8;
+		rxmsg.DLC = (s_aucRecvCanData[s_can_ridx][4] >> 4) & 0x0F;
+		if (rxmsg.DLC > 8)
+		{
+			rxmsg.DLC = 8;
+		}
 		rxmsg.RTR = CAN_RTR_DATA;
-		memcpy(rxmsg.Data,&(s_aucRecvCanData[s_can_ridx][9]),8);
+		if (rxmsg.DLC)
+		{
+			memcpy(rxmsg.Data,&(s_aucRecvCanData[s_can_ridx][9]),rxmsg.DLC);
+		}
 
 		//CAN原始报文上报服务器
 		if (is_in_catch_canid_list(canid))
@@ -1203,7 +1214,7 @@ void can0_hook(CanRxMsg *prxmsg)
 	INT32U canid = 0;
 
 	stat_can_rx_fps(0); 			//统计桢率
-	can_data_in_queue(0,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,8);
+	can_data_in_queue(0,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,(prxmsg->DLC > 8) ? 8 : prxmsg->DLC);
 
 	//流控制回复
 	canid = (prxmsg->IDE == CAN_Id_Extended) ? prxmsg->ExtId : prxmsg->StdId;
@@ -1222,7 +1233,7 @@ void can0_hook(CanRxMsg *prxmsg)
 void can1_hook(CanRxMsg *prxmsg)
 {
 	stat_can_rx_fps(1);
-	can_data_in_queue(1,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,8);
+	can_data_in_queue(1,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,(prxmsg->DLC > 8) ? 8 : prxmsg->DLC);
 
 	//sandian_flow_ctrl_ack(1,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,8);
 }
@@ -1230,7 +1241,7 @@ void can1_hook(CanRxMsg *prxmsg)
 void can2_hook(CanRxMsg *prxmsg)
 {
 	stat_can_rx_fps(2);
-	can_data_in_queue(2,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,8);
+	can_data_in_queue(2,prxmsg->IDE,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,(prxmsg->DLC > 8) ? 8 : prxmsg->DLC);
 	//sandian_flow_ctrl_ack(2,prxmsg->IDE ? prxmsg->ExtId : prxmsg->StdId,prxmsg->Data,8);
 }
 

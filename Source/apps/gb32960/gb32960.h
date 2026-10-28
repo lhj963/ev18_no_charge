@@ -225,6 +225,10 @@ extern char is_car_xh(void);
 
 extern void gb32960_proc(void);
 
+/* 1: frame located and BCC matches. -1: frame located, BCC mismatch. 0: no complete frame. */
+extern int gb32960_locate_frame(unsigned char *buf,unsigned int len,
+	unsigned char **pframe,unsigned int *framelen);
+
 extern void gb32960_ack_plat(INT8U linkid,void *pdat,unsigned int len);
 
 extern void sddf_ack_plat(INT8U linkid,void *pdat,unsigned int len);

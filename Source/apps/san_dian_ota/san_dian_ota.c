@@ -69,6 +69,102 @@ unsigned int sandian_get_upgrade_progress(void)
 	return 0;
 }
 
+void ota_note_file_offset(unsigned int *cursor,unsigned int offset,unsigned int stored)
+{
+	unsigned int next = 0;
+
+	if (cursor == 0)
+	{
+		return ;
+	}
+	if (stored > (0xFFFFFFFFu - offset))
+	{
+		next = 0xFFFFFFFFu;
+	}
+	else
+	{
+		next = offset + stored;
+	}
+	if (next > *cursor)
+	{
+		*cursor = next;
+	}
+}
+
+static unsigned int isotp_stmin_ms(unsigned char stmin)
+{
+	if (stmin <= 0x7F)
+	{
+		return stmin;
+	}
+	if ((stmin >= 0xF1) && (stmin <= 0xF9))
+	{
+		return 1;
+	}
+	return 127;
+}
+
+void sandian_isotp_send_cfs(unsigned char channel,unsigned int canid,
+	const unsigned char *buf,unsigned int buflen,
+	unsigned int *off,unsigned int end,
+	unsigned char block_size,unsigned char stmin)
+{
+	unsigned int sent = 0;
+	unsigned int st_ms = isotp_stmin_ms(stmin);
+	unsigned char dat[8] = {0};
+	unsigned int idx = 0;
+	unsigned int k = 0;
+	unsigned int pos = 0;
+
+	if ((buf == 0) || (off == 0))
+	{
+		return ;
+	}
+	if (end > buflen)
+	{
+		end = buflen;
+	}
+	if (*off == 0)
+	{
+		*off = 4;
+	}
+	while (*off < end)
+	{
+		if (block_size && (sent >= block_size))
+		{
+			break;
+		}
+		pos = *off;
+		idx = (pos - 4) / 7;
+		dat[0] = (unsigned char)(0x20 + ((idx + 1) % 16));
+		for (k = 0; k < 7; k++)
+		{
+			if ((pos + k) < end)
+			{
+				dat[1 + k] = buf[pos + k];
+			}
+			else
+			{
+				dat[1 + k] = 0;
+			}
+		}
+		sandian_tx(channel,canid,dat,8);
+		if ((*off + 7) < end)
+		{
+			*off += 7;
+		}
+		else
+		{
+			*off = end;
+		}
+		sent++;
+		if ((*off < end) && st_ms && ((block_size == 0) || (sent < block_size)))
+		{
+			os_sleep(st_ms);
+		}
+	}
+}
+
 void sandian_tx(unsigned char channel,unsigned int canid,unsigned char *pdat,unsigned char datlen)
 {
 	CanTxMsg tx = {0};
@@ -622,6 +718,7 @@ void can_bus_transfer_file_proc1(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsig
 				p_can_bus_ota->app_cur_tx_len = p_can_bus_ota->app_len - p_can_bus_ota->app_tx_len;
 	
 				dat[0] = p_can_bus_ota->app_cur_tx_len + 2;
+				p_can_bus_ota->isotp_cf_off = p_can_bus_ota->app_cur_tx_len;
 				dat[1] = 0x36;
 				dat[2] = 0x01 + p_can_bus_ota->app_bag_id;
 				
@@ -632,7 +729,6 @@ void can_bus_transfer_file_proc1(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsig
 				dat[7] = p_can_bus_ota->buf[4];
 
 				p_can_bus_ota->app_data_arrive_flag = 0;
-				p_can_bus_ota->app_offset += p_can_bus_ota->app_cur_tx_len;
 				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
 			}
 			else
@@ -647,6 +743,7 @@ void can_bus_transfer_file_proc1(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsig
 				}
 
 				dat[0] = ((p_can_bus_ota->app_cur_tx_len + 2) >> 8) | 0x10;
+				p_can_bus_ota->isotp_cf_off = 4;
 				dat[1] = p_can_bus_ota->app_cur_tx_len + 2;
 				dat[2] = 0x36;
 				dat[3] = 0x01 + p_can_bus_ota->app_bag_id;
@@ -665,27 +762,12 @@ void can_bus_transfer_file_proc1(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsig
 		if ((canid == p_can_bus_ota->response_id) && ((pMsg->Data[0] & 0xF0) == 0x30))
 		{
 
-			templen = 4;
-			i = 0;
-			while (templen < p_can_bus_ota->app_cur_tx_len)
+			sandian_isotp_send_cfs(p_can_bus_ota->channel,p_can_bus_ota->phy_id,p_can_bus_ota->buf,sizeof(p_can_bus_ota->buf),&p_can_bus_ota->isotp_cf_off,p_can_bus_ota->app_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+			if (p_can_bus_ota->isotp_cf_off >= p_can_bus_ota->app_cur_tx_len)
 			{
-				dat[0] = 0x20 + ((i+1) % 16);
-				dat[1] = p_can_bus_ota->buf[4 + (i * 7) + 0];
-				dat[2] = p_can_bus_ota->buf[4 + (i * 7) + 1];
-				dat[3] = p_can_bus_ota->buf[4 + (i * 7) + 2];
-				dat[4] = p_can_bus_ota->buf[4 + (i * 7) + 3];									
-				dat[5] = p_can_bus_ota->buf[4 + (i * 7) + 4];
-				dat[6] = p_can_bus_ota->buf[4 + (i * 7) + 5];
-				dat[7] = p_can_bus_ota->buf[4 + (i * 7) + 6];
-
-				sandian_tx(p_can_bus_ota->channel,p_can_bus_ota->phy_id,dat,8);
-
-				templen += 7;
-				i++;
+						p_can_bus_ota->app_data_arrive_flag = 0;
+						send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
 			}
-			p_can_bus_ota->app_data_arrive_flag = 0;
-			p_can_bus_ota->app_offset += p_can_bus_ota->app_cur_tx_len;
-			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
 		}
 	}
 	break;
@@ -749,7 +831,6 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 
 			p_can_bus_ota->next_drv_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->drv_offset),(void *)(p_can_bus_ota->transfer_max_len));
-			p_can_bus_ota->drv_offset += p_can_bus_ota->transfer_max_len;
 		}
 		
 		if (p_can_bus_ota->transfer_max_len && (p_can_bus_ota->drv_tx_len < p_can_bus_ota->drv_len))
@@ -783,6 +864,7 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 					p_can_bus_ota->drv_cur_tx_len = p_can_bus_ota->drv_len - p_can_bus_ota->drv_tx_len;
 		
 					dat[0] = p_can_bus_ota->drv_cur_tx_len + 2;
+					p_can_bus_ota->isotp_cf_off = p_can_bus_ota->drv_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + p_can_bus_ota->drv_bag_id;
 					
@@ -792,7 +874,6 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 					dat[6] = p_can_bus_ota->buf[3];
 					dat[7] = p_can_bus_ota->buf[4];
 
-					p_can_bus_ota->drv_offset += p_can_bus_ota->drv_cur_tx_len;
 				}
 				else
 				{
@@ -806,6 +887,7 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 					}
 					
 					dat[0] = ((p_can_bus_ota->drv_cur_tx_len + 2) >> 8) | 0x10;
+					p_can_bus_ota->isotp_cf_off = 4;
 					dat[1] = p_can_bus_ota->drv_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + p_can_bus_ota->drv_bag_id;
@@ -822,30 +904,12 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 		
 			if ((canid == p_can_bus_ota->response_id) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < p_can_bus_ota->drv_cur_tx_len)
+				sandian_isotp_send_cfs(p_can_bus_ota->channel,p_can_bus_ota->phy_id,p_can_bus_ota->buf,sizeof(p_can_bus_ota->buf),&p_can_bus_ota->isotp_cf_off,p_can_bus_ota->drv_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (p_can_bus_ota->isotp_cf_off >= p_can_bus_ota->drv_cur_tx_len)
 				{
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = p_can_bus_ota->buf[4 + (i * 7) + 0];
-					dat[2] = p_can_bus_ota->buf[4 + (i * 7) + 1];
-					dat[3] = p_can_bus_ota->buf[4 + (i * 7) + 2];
-					dat[4] = p_can_bus_ota->buf[4 + (i * 7) + 3]; 									
-					dat[5] = p_can_bus_ota->buf[4 + (i * 7) + 4];
-					dat[6] = p_can_bus_ota->buf[4 + (i * 7) + 5];
-					dat[7] = p_can_bus_ota->buf[4 + (i * 7) + 6];
-		
-					sandian_tx(p_can_bus_ota->channel,p_can_bus_ota->phy_id,dat,8);
-		
-					templen += 7;
-					i++;
-
-					//if ((i % 16) == 0) os_sleep(5);
+								p_can_bus_ota->drv_data_arrive_flag = 0;
+								send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->drv_offset),(void *)(p_can_bus_ota->transfer_max_len));
 				}
-				
-				p_can_bus_ota->drv_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->drv_offset),(void *)(p_can_bus_ota->transfer_max_len));
-				p_can_bus_ota->drv_offset += p_can_bus_ota->drv_cur_tx_len;
 			}
 		}
 
@@ -882,7 +946,6 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 
 			p_can_bus_ota->next_app_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
-			p_can_bus_ota->app_offset += p_can_bus_ota->transfer_max_len;
 		}
 		
 		if (p_can_bus_ota->transfer_max_len && (p_can_bus_ota->app_tx_len < p_can_bus_ota->app_len))
@@ -923,6 +986,7 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 					p_can_bus_ota->app_cur_tx_len = p_can_bus_ota->app_len - p_can_bus_ota->app_tx_len;
 		
 					dat[0] = p_can_bus_ota->app_cur_tx_len + 2;
+					p_can_bus_ota->isotp_cf_off = p_can_bus_ota->app_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + p_can_bus_ota->app_bag_id;
 					
@@ -944,6 +1008,7 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 					}
 					
 					dat[0] = ((p_can_bus_ota->app_cur_tx_len + 2) >> 8) | 0x10;
+					p_can_bus_ota->isotp_cf_off = 4;
 					dat[1] = p_can_bus_ota->app_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + p_can_bus_ota->app_bag_id;
@@ -961,30 +1026,12 @@ void can_bus_transfer_file_proc(CAN_BUS_OTA *p_can_bus_ota,CanRxMsg *pMsg,unsign
 
 			if ((canid == p_can_bus_ota->response_id) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < p_can_bus_ota->app_cur_tx_len)
+				sandian_isotp_send_cfs(p_can_bus_ota->channel,p_can_bus_ota->phy_id,p_can_bus_ota->buf,sizeof(p_can_bus_ota->buf),&p_can_bus_ota->isotp_cf_off,p_can_bus_ota->app_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (p_can_bus_ota->isotp_cf_off >= p_can_bus_ota->app_cur_tx_len)
 				{
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = p_can_bus_ota->buf[4 + (i * 7) + 0];
-					dat[2] = p_can_bus_ota->buf[4 + (i * 7) + 1];
-					dat[3] = p_can_bus_ota->buf[4 + (i * 7) + 2];
-					dat[4] = p_can_bus_ota->buf[4 + (i * 7) + 3]; 									
-					dat[5] = p_can_bus_ota->buf[4 + (i * 7) + 4];
-					dat[6] = p_can_bus_ota->buf[4 + (i * 7) + 5];
-					dat[7] = p_can_bus_ota->buf[4 + (i * 7) + 6];
-		
-					sandian_tx(p_can_bus_ota->channel,p_can_bus_ota->phy_id,dat,8);
-
-					templen += 7;
-					i++;
-
-					//if ((i % 16) == 0) os_sleep(5);
+					p_can_bus_ota->app_data_arrive_flag = 0;
+					send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
 				}
-
-				p_can_bus_ota->app_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(p_can_bus_ota->app_offset),(void *)(p_can_bus_ota->transfer_max_len));
-				p_can_bus_ota->app_offset += p_can_bus_ota->transfer_max_len;
 			}
 		}
 
@@ -1024,14 +1071,11 @@ unsigned int can_bus_get_sandian_ota_progress(CAN_BUS_OTA *p_can_bus_ota)
 		total_len += p_can_bus_ota->app_blk[i].block_size;
 	}
 
-	if ((p_can_bus_ota->drv_block_cnt + p_can_bus_ota->app_block_cnt) > 0)
-	{
-		return ((p_can_bus_ota->drv_offset + p_can_bus_ota->app_offset) * 100) / total_len;
-	}
-	else
+	if (total_len == 0)
 	{
 		return 0;
 	}
+	return ((p_can_bus_ota->drv_offset + p_can_bus_ota->app_offset) * 100) / total_len;
 }
 
 
@@ -1082,7 +1126,12 @@ void sandian_data_arrive(CAN_BUS_OTA *p_can_bus_ota,unsigned int file_type,unsig
 		p_can_bus_ota->app_data_arrive_flag = 1;
 	}
 
-	memcpy(p_can_bus_ota->buf,pdat,(datlen >= sizeof(p_can_bus_ota->buf)) ? sizeof(p_can_bus_ota->buf) : datlen);
+	{
+		unsigned int stored = (datlen >= sizeof(p_can_bus_ota->buf)) ? sizeof(p_can_bus_ota->buf) : datlen;
+		if (stored && pdat) memcpy(p_can_bus_ota->buf,pdat,stored);
+		if ((file_type % 10) == 1) ota_note_file_offset(&p_can_bus_ota->drv_offset,offset,stored);
+		else if ((file_type % 10) == 2) ota_note_file_offset(&p_can_bus_ota->app_offset,offset,stored);
+	}
 	p_can_bus_ota->last_bag_arrive_offset = offset;
 	p_can_bus_ota->last_bag_arrive_len = datlen;
 }

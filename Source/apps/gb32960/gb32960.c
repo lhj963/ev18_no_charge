@@ -205,7 +205,7 @@ typedef struct tagDefProtocolStatus
 }DefProtocolStatus;
 
 DefProtocolStatus stDefProtocolStatus = {0};
-INT8U sos_test_flag = 1;
+INT8U sos_test_flag = 0; /* production default: alarm test mask off */
 INT32U sos_test_flag_val = 0;
 INT32U test_sos_time[19] = {0};
 INT8U s_mq_flag = 0;
@@ -1495,27 +1495,34 @@ unsigned int get_sddf_mbmu_sbmu_data(void *pOut,unsigned int outbuflen)
 		return 0;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x81;
 
 	for (i = 0; i < 1; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = i + 1;
 
 		#if 1
 		for (j = 0; j < 4; j++)
 		{
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = stDefProtocolStatus.sddf_mbmu[i].bmu_ver_poll_id[j];
+			if (((unsigned int)rlen + (unsigned int)(21)) > outbuflen) return rlen;
 			memcpy(ptr + rlen,&(stDefProtocolStatus.sddf_mbmu[i].bmu_ver[21 * j]),21);
 			rlen += 21;
 		}
 		#else
+		if (((unsigned int)rlen + (unsigned int)(4)) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_mbmu[i].bmu_ver_poll_id,4);
 		rlen += 4;
 
+		if (((unsigned int)rlen + (unsigned int)((21*4))) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_mbmu[i].bmu_ver,21 * 4);
 		rlen += (21*4);
 		#endif
 
+		if (((unsigned int)rlen + (unsigned int)(6)) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_mbmu[i].bmu_mac,6);
 		rlen += 6;
 	}
@@ -1525,6 +1532,7 @@ unsigned int get_sddf_mbmu_sbmu_data(void *pOut,unsigned int outbuflen)
 	{
 		templen = MAX_SDDF_DIANCHIBAO_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	for (i = 0; i < stDefProtocolStatus.sddf_dianchibao_cnt; i++)
@@ -1534,23 +1542,29 @@ unsigned int get_sddf_mbmu_sbmu_data(void *pOut,unsigned int outbuflen)
 			break;
 		}
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = i + 1;
 
 		#if 1
 		for (j = 0; j < 4; j++)
 		{
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = stDefProtocolStatus.sddf_sbmu[i].bmu_ver_poll_id[j];
+			if (((unsigned int)rlen + (unsigned int)(21)) > outbuflen) return rlen;
 			memcpy(ptr + rlen,&(stDefProtocolStatus.sddf_sbmu[i].bmu_ver[21 * j]),21);
 			rlen += 21;
 		}
 		#else
+		if (((unsigned int)rlen + (unsigned int)(4)) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_sbmu[i].bmu_ver_poll_id,4);
 		rlen += 4;
 
+		if (((unsigned int)rlen + (unsigned int)((21*4))) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_sbmu[i].bmu_ver,21 * 4);
 		rlen += (21*4);
 		#endif
 
+		if (((unsigned int)rlen + (unsigned int)(6)) > outbuflen) return rlen;
 		memcpy(ptr + rlen,stDefProtocolStatus.sddf_sbmu[i].bmu_mac,6);
 		rlen += 6;
 	}
@@ -1571,6 +1585,7 @@ unsigned int get_sddf_chongfangdian_data(void *pOut,unsigned int outbuflen)
 		return 0;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x82;
 
 	templen = stDefProtocolStatus.sddf_dianchibao_cnt;
@@ -1578,6 +1593,7 @@ unsigned int get_sddf_chongfangdian_data(void *pOut,unsigned int outbuflen)
 	{
 		templen = MAX_SDDF_DIANCHIBAO_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	for (i = 0; i < stDefProtocolStatus.sddf_dianchibao_cnt; i++)
@@ -1587,57 +1603,87 @@ unsigned int get_sddf_chongfangdian_data(void *pOut,unsigned int outbuflen)
 			break;
 		}
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = i + 1;
 
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_cfd_data[i].SOH;
 
 
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_fangdian_cycle;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_chongdian_cycle;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 	
 
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_zhanwai_fangdian_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_zhanwai_huichong_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_zhanwai_chaqiang_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		//累计里程
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_milage;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		//累计放电能量
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_fangdian_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 		
 		templen = stDefProtocolStatus.sddf_cfd_data[i].total_chongdian_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 	}
 
@@ -1658,19 +1704,24 @@ unsigned int get_sddf_charge_data(void *pOut,unsigned int outbuflen)
 		return 0;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x83;
 	templen = stDefProtocolStatus.sddf_dianchibao_cnt;
 	if (templen >= MAX_SDDF_DIANCHIBAO_CNT)
 	{
 		templen = MAX_SDDF_DIANCHIBAO_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	for (i = 0; i < templen; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = i + 1;
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_benci_chongdian_rongliang[i] >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_benci_chongdian_rongliang[i];
 	}
 
@@ -1690,47 +1741,74 @@ unsigned int get_sddf_acp_data(void *pOut,unsigned int outbuflen)
 		return 0;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x80;
 
 	templen = stDefProtocolStatus.sddf_xitongfangdian_leiji_guoliu;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	templen = stDefProtocolStatus.sddf_xitonghuichong_leiji_guoliu;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	templen = stDefProtocolStatus.sddf_xitongchaqiang_leiji_guoliu;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	templen = stDefProtocolStatus.sddf_xitong_pingjun_dianya;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = stDefProtocolStatus.sddf_xitong_pingjun_wendu;
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = stDefProtocolStatus.sddf_dianchi_xt_zhu_zheng_status;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = stDefProtocolStatus.sddf_dianchi_xt_zhu_fu_status;
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = stDefProtocolStatus.sddf_dianchi_zhanwai_chongdian_flag;
 
 	templen = stDefProtocolStatus.sddf_xitong_zhanwai_chaqiang_xj_cnt;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	templen = stDefProtocolStatus.sddf_xitong_zhanwai_chaqiang_lj_cnt;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	templen = stDefProtocolStatus.sddf_dianchibao_cnt;
@@ -1738,6 +1816,7 @@ unsigned int get_sddf_acp_data(void *pOut,unsigned int outbuflen)
 	{
 		templen = MAX_SDDF_DIANCHIBAO_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//电池包信息
@@ -1748,47 +1827,73 @@ unsigned int get_sddf_acp_data(void *pOut,unsigned int outbuflen)
 			break;
 		}
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = i+ 1;//stDefProtocolStatus.sddf_dianchi[i].xuhao;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].zhanwai_fd_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].zhanwai_cd_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].zhanwai_hc_nengliang;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].milage;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_dianchi[i].zhuzheng_xianquan_status;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_dianchi[i].zhufu_xianquan_status;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].dianliu;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].dianya;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
   
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stDefProtocolStatus.sddf_dianchi[i].soc;
 
 		templen = stDefProtocolStatus.sddf_dianchi[i].soe;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = templen;
 	}
 	return rlen;
@@ -1807,48 +1912,80 @@ unsigned int get_d78_zdy_data(void *pOut,unsigned int outbuflen)
 	}
 
 	//整车关键数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x81;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_car_status();
 	templen = get_d78_soe();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_soh();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_dcdc_output_vol();
 	templen = get_d78_ptc();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	templen = get_d78_cce_rpm();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//高压系统关键数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x82;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_bat_yuchong_status();
 	templen = get_d78_bms_output_vol();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	templen = get_d78_mcu_input_vol();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_dcdc_input_vol();
 
 	//电子牵引力故障关键数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x83;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_mcu_gz_level();
+	if (((unsigned int)rlen + (unsigned int)(8)) > outbuflen) return rlen;
 	memcpy(ptr + rlen,get_d78_mcu_gz_code(),8);
 	rlen += 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_vcu_gz_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_vcu_gz_code();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_dcdc_gz_level();
+	if (((unsigned int)rlen + (unsigned int)(8)) > outbuflen) return rlen;
 	memcpy(ptr + rlen,get_d78_dcdc_gz_code(),8);
 	rlen += 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_bms_gz_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_bms_gz_code();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_obc_gz_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_obc_gz_code();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_chm_hot_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_chm_cool_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_mcu_igbt_flag();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_d78_zhenkong_gz_flag();
 
 	return rlen;
@@ -1868,21 +2005,32 @@ unsigned int get_em26_zdy_data(void *pOut,unsigned int outbuflen)
 	}
 
 	//制冷系统数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x85;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_em26_fan_ls_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_em26_fan_hs_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_em26_air_cond_status();
 	templen = get_em26_air_cond_speed();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x88;
 	templen = get_total_charge_in();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	
 	templen = get_total_charge_out();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	return rlen;
@@ -1904,75 +2052,108 @@ unsigned int get_ev18_zdy_data(void *pOut,unsigned int outbuflen)
 	}
 
 	//制冷系统数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x86;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ev18_fan_ls_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ev18_fan_hs_status();
 	
 	templen = get_ev18_air_cond_speed();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ev18_air_cond_status();
 	
 	templen = get_ev18_air_cond_ctrl_speed();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ev18_air_cond_ctrl_status();
 	
 	//
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x87;
 	templen = get_total_charge_in();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	
 	templen = get_total_charge_out();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	
 #if 1
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x89;
 	//GPS 速度
 	templen = 0xFFFF;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 	
 	//GPS方向
 	templen = 0xFF;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//海拔 
 	templen = 0xFFFF;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//钥匙档位
 	templen = get_key_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//档位
 	templen = gb32960_can_get_dangwei();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//加速踏板开度
 	templen = gb32960_can_get_jiasutaban_val();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//手刹开关 
 	templen = get_hand_brk_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//制动踏板开度
 	templen = gb32960_can_get_zhidongtaban_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//累计回馈电量
 	templen = 0xFFFFFFFF;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//充电时状态
@@ -1992,33 +2173,46 @@ unsigned int get_ev18_zdy_data(void *pOut,unsigned int outbuflen)
 	{
 		templen = 0xFF;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//续航里程
 	templen = get_xuhang_licheng();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//总运行时长
 	templen = gb32960_get_sys_run_time();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//方向盘角度信号
 	templen = get_steer_wheel_angle();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//定速巡航
 	templen = get_xunhang_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 
 	//巡航速度
 	templen = get_xunhang_speed();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = templen;
 #endif
 	
@@ -5902,94 +6096,160 @@ unsigned int get_gb32960_zuocang_data_unit(void *pOut,unsigned int outbuflen,
 	{
 		zuocang_data_num = 1;
 	}
+	if (outbuflen < 6) return 0;
 	if (time) memcpy(ptr,time,6);
 	rlen += 6;
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = ZUOCANG_DATA_INFO;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = zuocang_data_num >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = zuocang_data_num;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x02;//协议版本
 	
 	//GPS数据，20字节
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = pos_status;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat;
 	
 	temp_gps_data = (INT32U)send_msg(S_MSG_GET_GPS_SPEED,0,0,0);
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp_gps_data/10;//速度
 	
 	temp_gps_data = (INT32U)send_msg(S_MSG_GET_ANGLE,0,0,0);
 	temp_gps_data = temp_gps_data/128;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp_gps_data;//方向 
 	
 	temp_gps_data = (INT32U)send_msg(S_MSG_GET_GAODU,0,0,0);
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = zc_stGPS.usGaodu >>8;//高程
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = zc_stGPS.usGaodu;
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;//坡度 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;//加速度
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;//GSM 信号强度
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;//基站 LAC
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;//基站编号
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = 0x0;
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_key_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ready_status();//gb32960_can_get_car_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_hand_brk_status();
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_steer_wheel_angle()>>8;//方向盘转角
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_steer_wheel_angle();
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage();
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_power_ctrl_allow();//上下电允许指令
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_dc_dc_status();//DCDC 工作状态
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianya() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianya();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianliu() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianliu();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_soc();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_zhufujiechuqi_status();//主负接触器状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_charge_status();
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_bms_wakeup_status();//BMS 唤醒状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_vcu_wakeup_status();//VCU唤醒其他控制器电源
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ce_door_switch();//侧滑门开关
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_back_door_switch();//后背门开关
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_l_f_door_switch();//
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_r_f_door_switch();//副驾驶侧前门开关
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_l_f_door_status();//
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_center_door_status();//中央门控锁开关
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_door_lock_status();//门锁状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_cond_switch();//压缩机工作使能 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_cond_switch_status();//压缩机启停状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_cond_far_func();//空调数据长度 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ac_quire_status();//AC 请求 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_air_work_status();//空调工作状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_xunhuan_mode_status();//内外循环状态 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_shaung_mode_status();//快速除霜模式
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_ptc_work_status();//PTC 工作状态
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_feng_mode_status();//吹风模式  
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_feng_dangwei_status();//风量显示 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_wendu_dangwei_status();//温度显示
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_lose_power_fail_status();//下电失败状态 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = get_lock_door_fail_status();//上锁失败状态
 	
 	return rlen;
@@ -6033,44 +6293,67 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	}
 
 	//采集时间
+	if (outbuflen < 6) return 0;
 	if (time) memcpy(ptr,time,6);
 	rlen += 6;
 #if 1
 	//整车数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = ZC_DATA_INFO;
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_car_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_charge_status();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_run_mode();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_speed() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_speed();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_milage();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianya() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianya();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianliu() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_total_dianliu();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_soc();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_dc_dc_status();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_dangwei();
 
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_jueyuandianzu() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_jueyuandianzu();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_jiasutaban_val();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_zhidongtaban_status();
 #endif
 
 #if 1
 	//驱动电机数据
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = QDDJ_INFO;
 
 	temp = gb32960_can_get_qddj_cnt();
@@ -6079,24 +6362,35 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 		temp = MAX_DJ_CNT;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;		//驱动电机个数
 
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_xuhao(i);				//电机序号
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_status(i);					//电机状态
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_controller_wendu(i);		//控制器温度
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_rpm(i) >> 8;				//转速
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_rpm(i);
 
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_zhuanju(i) >> 8;			//转矩
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_zhuanju(i);
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_wendu(i);			//电机温度
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_input_dianya(i) >> 8;			//输入电压
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_input_dianya(i);
 
 		temp1 = gb32960_can_get_qddj_controller_dianliu(i);
@@ -6104,7 +6398,9 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 		{
 			temp1 = gb32960_can_get_total_dianliu();
 		}
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1 >> 8;//控制器电流
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1;
 		
 	}
@@ -6114,14 +6410,21 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	if ((gb32960_can_get_run_mode() != 0x01) && (gb32960_can_get_run_mode() != 0xFF))	//非纯电模式下需要燃料电池
 	{
 		//燃料电池
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = RLDC_INFO;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_dianya() >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_dianya();
 		
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_dianliu() >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_dianliu();
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_xiaohaolv() >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_rldc_xiaohaolv();
 
 		temp = gb32960_can_get_rldc_tanzhen_cnt();
@@ -6129,73 +6432,117 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 		{
 			temp = MAX_TAN_ZHEN_CNT;
 		}
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp >> 8;		//探针总数
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp;
 
 		for (i = 0; i < temp; i++)
 		{
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = gb32960_can_get_rldc_tanzhen_wendu(i);
 		}
 		
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_wendu_in_qi_system() >> 8;		//氢系统中最高温度
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_wendu_in_qi_system();
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_wendu_tanzhen_id_in_qi_system();
 		
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_nongdu() >> 8; 	//最高氢气浓度
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_nongdu();
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_sensor_id();
 		
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_yali() >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_yali();
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_max_qingqi_yali_sensor_id();
 		
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_gaoya_dc_dc_status();
 	}
 #endif
 
 #if 1
 	//位置信息
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = CAR_POS_INFO;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = pos_status;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lon;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = lat;
 #endif
 #if 1
 	rlen_jizhi = rlen;
 	//极值信息
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = JIZHI_INFO;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_dianya_sub_system_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_dianya_danti_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_danti_dianya_val() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_danti_dianya_val();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_dianya_sub_system_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_dianya_danti_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_danti_dianya_val() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_danti_dianya_val();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_wendu_sub_system_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_wendu_tanzhen_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_wendu_val();
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_wendu_sub_system_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_wendu_tanzhen_id();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_min_wendu_val();
 #endif
 
 #if 1
 	//报警信息
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = SOS_INFO;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_max_sos_level();
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_sos_flag() >> 24;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_sos_flag() >> 16;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_sos_flag() >> 8;
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = gb32960_can_get_sos_flag();
 
 	temp = gb32960_can_get_charge_set_dtc_cnt();
@@ -6204,13 +6551,18 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	{
 		temp = MAX_CAN_CHARGE_DTC_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 
 	for (i = 0; i < temp; i++)
 	{	
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_charge_set_dtc_list(i) >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_charge_set_dtc_list(i) >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_charge_set_dtc_list(i) >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_charge_set_dtc_list(i);
 	}
 	
@@ -6220,13 +6572,18 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	{
 		temp = MAX_QDDJ_DTC_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_dtc_list(i) >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_dtc_list(i) >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_dtc_list(i) >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_qddj_dtc_list(i);
 	}
 	
@@ -6237,13 +6594,18 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	{
 		temp = MAX_ECU_DTC_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_ecu_dtc_list(i) >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_ecu_dtc_list(i) >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_ecu_dtc_list(i) >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_ecu_dtc_list(i);
 	}
 	
@@ -6254,13 +6616,18 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	{
 		temp = MAX_OTHER_DTC_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_other_dtc_list(i) >> 24;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_other_dtc_list(i) >> 16;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_other_dtc_list(i) >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = gb32960_can_get_other_dtc_list(i);
 	}
 
@@ -6270,29 +6637,40 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	max_dianya_danti_value = stGB32960Param.stCNXTData[0].danti_dianchi_dianya[0];
 	min_dianya_danti_value = stGB32960Param.stCNXTData[0].danti_dianchi_dianya[0];
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = VOL_INFO;
 	temp = gb32960_can_get_dianchi_cnt();
 	if (temp > MAX_DIANCHI_CNT)
 	{
 		temp = MAX_DIANCHI_CNT;
 	}
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[i].id;
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[0].dianya >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[0].dianya;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[0].dianliu >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[0].dianliu;
 
 		temp1 = stGB32960Param.stCNXTData[i].benzhen_danti_cnt;
 		if (temp1 == 0xFF) temp1 = 0;
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1 >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1;
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[i].benzhen_start_id >> 8;
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[i].benzhen_start_id;
 
 		temp1 = stGB32960Param.stCNXTData[i].benzhen_danti_cnt;
@@ -6302,10 +6680,13 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 			temp1 = DANTI_DIANCHI_CNT_EVERY_DIANCHI;
 		}
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1;
 		for (j = 0; j < temp1; j++)
 		{
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = stGB32960Param.stCNXTData[i].danti_dianchi_dianya[j] >> 8;
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = stGB32960Param.stCNXTData[i].danti_dianchi_dianya[j];
 			
 			if(stGB32960Param.stCNXTData[i].danti_dianchi_dianya[j] > max_dianya_danti_value)
@@ -6339,6 +6720,7 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 	max_wendu_danti_value = stGB32960Param.stCNXTData[0].wendu[0];
 	min_wendu_danti_value = stGB32960Param.stCNXTData[0].wendu[0];
 	
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = TEMP_INFO;
 
 	temp = gb32960_can_get_dianchi_cnt();
@@ -6347,9 +6729,11 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 		temp = MAX_DIANCHI_CNT;
 	}
 
+	if (rlen >= outbuflen) return rlen;
 	ptr[rlen++] = temp;
 	for (i = 0; i < temp; i++)
 	{
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = stGB32960Param.stCNXTData[i].id;
 
 		temp1 = stGB32960Param.stCNXTData[i].wendu_tanzhen_cnt;
@@ -6359,11 +6743,14 @@ unsigned int get_gb32960_data_unit(void *pOut,unsigned int outbuflen,
 			temp1 = WENDU_TANZHEN_CNT_EVERY_DIANCHI;
 		}
 
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1 >> 8;		//探针总数
+		if (rlen >= outbuflen) return rlen;
 		ptr[rlen++] = temp1;
 
 		for (j = 0; j < temp1; j++)
 		{
+			if (rlen >= outbuflen) return rlen;
 			ptr[rlen++] = stGB32960Param.stCNXTData[i].wendu[j];
 			if(stGB32960Param.stCNXTData[i].wendu[j] > max_wendu_danti_value)
 			{
@@ -6424,14 +6811,17 @@ unsigned int _sddf_xGB32960_RealDataPack(void *pOut,unsigned int outbuflen,INT8U
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
-	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
-	rlen += get_sddf_acp_data(ptr + rlen,256);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		rlen += get_gb32960_data_unit(ptr,cap,time,pos_status,lon,lat);
+		if (rlen < cap) rlen += get_sddf_acp_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6444,15 +6834,18 @@ unsigned int _D78_xGB32960_RealDataPack(void *pOut,unsigned int outbuflen,INT8U 
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
 
-	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
-	rlen += get_d78_zdy_data(ptr + rlen,128);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		rlen += get_gb32960_data_unit(ptr,cap,time,pos_status,lon,lat);
+		if (rlen < cap) rlen += get_d78_zdy_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6465,14 +6858,14 @@ unsigned int _EV18_xGB32960_zuocang_RealDataPack(void *pOut,unsigned int outbufl
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
 
-	rlen += get_gb32960_zuocang_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
+	rlen += get_gb32960_zuocang_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET - 1,time,pos_status,lon,lat);
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6485,15 +6878,18 @@ unsigned int _EV18_xGB32960_RealDataPack(void *pOut,unsigned int outbuflen,INT8U
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
 
-	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
-	rlen += get_ev18_zdy_data(ptr + rlen,128);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		rlen += get_gb32960_data_unit(ptr,cap,time,pos_status,lon,lat);
+		if (rlen < cap) rlen += get_ev18_zdy_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6506,15 +6902,18 @@ unsigned int _EM26_xGB32960_RealDataPack(void *pOut,unsigned int outbuflen,INT8U
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
 
-	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
-	rlen += get_em26_zdy_data(ptr + rlen,128);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		rlen += get_gb32960_data_unit(ptr,cap,time,pos_status,lon,lat);
+		if (rlen < cap) rlen += get_em26_zdy_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6528,13 +6927,13 @@ unsigned int _xGB32960_RealDataPack(void *pOut,unsigned int outbuflen,INT8U cmd,
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
-	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET,time,pos_status,lon,lat);
+	rlen += get_gb32960_data_unit(ptr,outbuflen - GB32960_CONTENT_OFFSET - 1,time,pos_status,lon,lat);
 
 	return _xDataBag(pOut,outbuflen,cmd,0xFE,pVIN,ptr,rlen);
 }
@@ -6622,18 +7021,21 @@ unsigned int sddf_BasicDataPack(void *pOut,unsigned int outbuflen,void *pVIN,INT
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
-	//采集时间
+	if (outbuflen < (GB32960_CONTENT_OFFSET + 1 + 6)) return 0;
 	if (time) memcpy(ptr,time,6);
 	rlen += 6;
 
-	rlen += get_sddf_mbmu_sbmu_data(ptr + rlen,outbuflen - GB32960_CONTENT_OFFSET - 6);
-	rlen += get_sddf_chongfangdian_data(ptr + rlen,384);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		if (rlen < cap) rlen += get_sddf_mbmu_sbmu_data(ptr + rlen,cap - rlen);
+		if (rlen < cap) rlen += get_sddf_chongfangdian_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,0xC2,0xFE,pVIN,ptr,rlen);
 }
@@ -6643,17 +7045,20 @@ unsigned int sddf_charge_data_pack(void *pOut,unsigned int outbuflen,void *pVIN,
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
-	//采集时间
+	if (outbuflen < (GB32960_CONTENT_OFFSET + 1 + 6)) return 0;
 	if (time) memcpy(ptr,time,6);
 	rlen += 6;
 
-	rlen += get_sddf_charge_data(ptr + rlen,outbuflen - GB32960_CONTENT_OFFSET - 6);
+	{
+		unsigned int cap = outbuflen - GB32960_CONTENT_OFFSET - 1;
+		if (rlen < cap) rlen += get_sddf_charge_data(ptr + rlen,cap - rlen);
+	}
 
 	return _xDataBag(pOut,outbuflen,0xC2,0xFE,pVIN,ptr,rlen);
 }
@@ -6663,13 +7068,14 @@ unsigned int sddf_ack_charge_limit_pack(void *pOut,unsigned int outbuflen,void *
 	unsigned int rlen = 0;
 	unsigned char *ptr = 0;
 
-	if ((pOut == 0) || (outbuflen < GB32960_CONTENT_OFFSET))
+	if ((pOut == 0) || (outbuflen < (GB32960_CONTENT_OFFSET + 1)))
 	{
 		return 0;
 	}
 	ptr = (unsigned char *)pOut + GB32960_CONTENT_OFFSET;
 
 	//采集时间
+	if (outbuflen < (GB32960_CONTENT_OFFSET + 1 + 10)) return 0;
 	if (time) memcpy(ptr,time,6);
 	rlen += 6;
 
@@ -7002,10 +7408,8 @@ void ota_ctrl(INT8U linkid,INT8U cmd,void *content,unsigned int contentlen)
 	INT8U buf[64] = {0};
 	unsigned char ack[13] = {0};
 	unsigned int slen = 0;
-	char *pcmd = 0;
-	char *purl = 0;
-	unsigned char urllen = 0;
-	unsigned int templen = 0;
+	unsigned char *purl = 0;
+	unsigned int urllen = 0;
 	unsigned char *pcontent = (unsigned char *)content;
 	INT8U subcmd = 0;
 	INT8U can_src_addr = 0;				//CAN 网络源地址 EF 表示VCU C8 标识BMS  EE 表示MCU
@@ -7032,67 +7436,59 @@ void ota_ctrl(INT8U linkid,INT8U cmd,void *content,unsigned int contentlen)
 	DBG_PrintBuf(LEVEL2,0,buf,slen);
 	send_msg(S_MSG_SEND_TO_SERVER,(void *)linkid,buf,(void *)slen);
 
-	pcmd = os_malloc(1536);
-	if (pcmd)
+	purl = (unsigned char *)_find_sub_str(pcontent + 10,contentlen - 10,"ftp://",strlen("ftp://"));
+	if (purl && (purl > pcontent))
 	{
-		purl = _find_sub_str(pcontent + 10,contentlen - 10,"ftp://",strlen("ftp://"));
-		if (purl)
+		const char *dest = 0;
+
+		urllen = *(purl - 1);
+		if (urllen && (urllen < 250) &&
+			(((unsigned int)(purl - pcontent) + urllen) <= contentlen))
 		{
-			urllen = *(purl - 1);
-			if (urllen && (urllen < 250))
+			if (cmd == 0xA5)			//TBOX ota
 			{
-				//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
-
-				if (cmd == 0xA5)			//TBOX ota
+				if (subcmd == 0x52)
 				{
-					if (subcmd == 0x52)
+					dest = "box.bin";
+				}
+			}
+			else if (cmd == 0xA0)		//零部件OTA
+			{
+				if (subcmd == 0xC4)
+				{
+					sandian_set_update_type(SANDIAN_UPDATE_TYPE_SHENGJI);
+					sandian_set_update_way(SANDIAN_UPDATE_WAY_PUTONG);
+					if (can_src_addr == 0xEE) 		//MCU
 					{
-						templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_MCU);
+						dest = "sandian_mcu.zip";
+					}
+					else if (can_src_addr == 0xC8)	//BMS
+					{
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_BMS);
+						dest = "sandian_bms.zip";
+					}
+					else if (can_src_addr == 0xEF)	//VCU
+					{
+						sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_VCU);
+						dest = "sandian_vcu.zip";
 					}
 				}
-				else if (cmd == 0xA0)		//零部件OTA
-				{
-					if (subcmd == 0xC4)
-					{
-						sandian_set_update_type(SANDIAN_UPDATE_TYPE_SHENGJI);
-						sandian_set_update_way(SANDIAN_UPDATE_WAY_PUTONG);
-						if (can_src_addr == 0xEE) 		//MCU
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_MCU);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_mcu.zip ");
-						}
-						else if (can_src_addr == 0xC8)	//BMS
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_BMS);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_bms.zip ");
-						}
-						else if (can_src_addr == 0xEF)	//VCU
-						{
-							sandian_set_update_lingjian_id(SANDIAN_UPDATE_LINGJIAN_ID_VCU);
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/sandian_vcu.zip ");
-						}
-					}
-				}
+			}
 
-				memcpy(pcmd + templen,purl,urllen);
-				templen += urllen;
-
-				pcmd[templen++] = '>';
-				pcmd[templen] = 0;
+			if (dest && platform_ota_download(dest, purl, urllen))
+			{
+				DBG_Print(0,"platform ota wget %s\r\n", dest);
+			}
+			else if (dest)
+			{
+				DBG_Print(LEVEL0,"reject platform ota url\r\n");
 			}
 		}
-		else
-		{
-			DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-			//purl = _find_sub_str(pcontent + 10,contentlen - 10,"http://",strlen("http://"));
-		}
-
-		if (purl)
-		{
-			DBG_Print(0,"[exe cmd]%s\r\n",pcmd);
-			send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
-		}
-		os_free(pcmd);
+	}
+	else
+	{
+		DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
 	}
 }
 
@@ -7108,6 +7504,11 @@ void driver_ctrl(INT8U linkid,INT8U cmd,void *content,unsigned int contentlen)
 	
 	if ((content == 0) || (contentlen <= 10))
 	{
+		return ;
+	}
+	if (get_gb32960_login_ok_flag(linkid) == 0)
+	{
+		DBG_Print(LEVEL0,"ignore 0xA7 without login session\r\n");
 		return ;
 	}
 	
@@ -7566,81 +7967,67 @@ void gb32960_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_w
 
 			if (subcmd == 0xC8) 		//tbox ota
 			{
-				char *pcmd = 0;
-				char *pusr = 0;
-				char *psw = 0;
-				char *purl = 0;
-				unsigned char urllen = 0;
-				unsigned char usrlen = 0;
-				unsigned char pswlen = 0;
-				unsigned int templen = 0;
+				unsigned char *pusr = 0;
+				unsigned char *psw = 0;
+				unsigned char *purl = 0;
+				unsigned int urllen = 0;
+				unsigned int usrlen = 0;
+				unsigned int pswlen = 0;
+				unsigned char *base = ptr;
+				int started = 0;
 
-				pcmd = os_malloc(1536);
-				if (pcmd)
 				{
-					purl = _find_sub_str(ptr + 10,16,"ftp://",strlen("ftp://"));
-					if (purl)
+					unsigned int look = contentlen - 10;
+					if (look > 16) look = 16;
+					purl = (unsigned char *)_find_sub_str(ptr + 10,look,"ftp://",strlen("ftp://"));
+				}
+				if (purl && (purl > base))
+				{
+					urllen = *(purl - 1);
+					if ((urllen >= strlen("ftp://")) &&
+						(((unsigned int)(purl - base) + urllen) < contentlen))
+					{
+						usrlen = purl[urllen];
+						pusr = purl + urllen + 1;
+						if (((unsigned int)(pusr - base) + usrlen) < contentlen)
+						{
+							pswlen = pusr[usrlen];
+							psw = pusr + usrlen + 1;
+							if ((usrlen < 144) && (pswlen < 144) &&
+								(((unsigned int)(psw - base) + pswlen) <= contentlen))
+							{
+								started = platform_ota_download_ftp_auth("box.bin",
+									purl, urllen, pusr, usrlen, psw, pswlen);
+							}
+						}
+					}
+				}
+				else
+				{
+					{
+						unsigned int look = contentlen - 10;
+						if (look > 16) look = 16;
+						purl = (unsigned char *)_find_sub_str(ptr + 10,look,"http://",strlen("http://"));
+					}
+					if (purl && (purl > base))
 					{
 						urllen = *(purl - 1);
-
-						pusr = purl + urllen + 1;
-						usrlen = *(purl + urllen);
-
-						psw = pusr + usrlen + 1;
-						pswlen = *(purl + urllen + 1 + usrlen);
-
-						if ((urllen >= strlen("ftp://")) && (usrlen < 144) && (pswlen < 144))
+						if (urllen && (urllen < 450) &&
+							(((unsigned int)(purl - base) + urllen) <= contentlen))
 						{
-							//snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://%s:%s@%s>",pusr,psw,purl + strlen("ftp://"));
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ftp://");
-							memcpy(pcmd + templen,pusr,usrlen);
-							templen += usrlen;
-							pcmd[templen++] = ':';
-							
-							memcpy(pcmd + templen,psw,pswlen);
-							templen += pswlen;
-							pcmd[templen++] = '@';
-							
-							memcpy(pcmd + templen,purl + strlen("ftp://"),(urllen - strlen("ftp://")));
-							templen += (urllen - strlen("ftp://")); 						
-
-							pcmd[templen++] = '>';
-
-							pcmd[templen] = 0;
-							//DBG_Print(LEVEL1,"usr:%s psw:%s url:%s\r\n",pusr,psw,purl);
-							//DBG_Print(LEVEL1,"exe cmd:%s\r\n",pcmd);
-
+							started = platform_ota_download("box.bin", purl, urllen);
 						}
 					}
-					else
-					{
-						//DBG_Print(LEVEL0,"%s","not fond ftp server\r\n");
-						purl = _find_sub_str(ptr + 10,16,"http://",strlen("http://"));
-						if (purl)
-						{
-							//ATEX=<linuxcmd:wget -O /data/box.bin http://129.211.170.236/BYSD_Z2021_MCU_V1.5.18BYSD_Z2021_MPU_V1.0.17.bin>
-							templen = snprintf(pcmd,511,"ATEX=<linuxcmd:wget -O /data/box.bin ");
-							if (*(purl - 1) < 450)
-							{
-								memcpy(pcmd + templen,purl,*(purl - 1));
-								templen += *(purl - 1);
-								pcmd[templen++] = '>';
-								pcmd[templen] = 0;
-							}
-							else
-							{
-								purl = 0;
-							}
-						}
-					}
+				}
 
-					if (purl)
-					{
-						DBG_Print(LEVEL1,"exe cmd:%s\r\n",pcmd);
-						send_msg(S_MSG_EXECUTE_DRV_CMD,pcmd,0,0);
-						mcu_start_update_flag = 1;
-					}
-					os_free(pcmd);
+				if (started)
+				{
+					DBG_Print(LEVEL1,"platform ota wget box.bin\r\n");
+					mcu_start_update_flag = 1;
+				}
+				else if (purl)
+				{
+					DBG_Print(LEVEL0,"reject platform ota url\r\n");
 				}
 			}
 			else if (subcmd == 0xC4)
@@ -7665,66 +8052,112 @@ void gb32960_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_w
 }
 
 
-void gb32960_ack_plat(INT8U linkid,void *pdat,unsigned int len)
+int gb32960_locate_frame(unsigned char *buf,unsigned int len,
+	unsigned char **pframe,unsigned int *framelen)
+{
+	unsigned char *phead = 0;
+	unsigned int skipped = 0;
+	unsigned int remain = 0;
+	unsigned int contentlen = 0;
+	unsigned int need = 0;
+	unsigned char expect = 0;
+
+	if (pframe) *pframe = 0;
+	if (framelen) *framelen = 0;
+	if ((buf == 0) || (len < GB32960_MIN_PACK_LEN))
+	{
+		return 0;
+	}
+
+	phead = (unsigned char *)_find_sub_str(buf,len,"\x23\x23",2);
+	if (phead == 0)
+	{
+		return 0;
+	}
+	skipped = (unsigned int)(phead - buf);
+	if (skipped > len)
+	{
+		return 0;
+	}
+	remain = len - skipped;
+	if (remain < GB32960_MIN_PACK_LEN)
+	{
+		return 0;
+	}
+
+	contentlen = ((unsigned int)phead[GB32960_CONTENT_LEN_OFFSET] << 8) + phead[GB32960_CONTENT_LEN_OFFSET + 1];
+	need = (unsigned int)GB32960_CONTENT_OFFSET + contentlen + 1;
+	if ((need < contentlen) || (remain < need))
+	{
+		return 0;
+	}
+
+	if (pframe) *pframe = phead;
+	if (framelen) *framelen = need;
+
+	expect = XOR_Check(phead + 2,(INT32U)GB32960_CONTENT_OFFSET + contentlen - 2);
+	if (expect != phead[GB32960_CONTENT_OFFSET + contentlen])
+	{
+		return -1;
+	}
+	return 1;
+}
+
+static void gb32960_dispatch_frames(INT8U linkid,void *pdat,unsigned int len,
+	void (*deal)(INT8U,INT8U,INT8U,void *,INT8U,void *,INT16U),
+	const char *tag,int loglevel)
 {
 	unsigned char *ptr = (unsigned char *)pdat;
-	unsigned char *phead = 0;
+	unsigned char *frame = 0;
+	unsigned int framelen = 0;
+	unsigned int skipped = 0;
+	int st = 0;
 
-	unsigned char cmd = 0;
-	unsigned char ack_flag = 0;
-	unsigned char *pvin = 0;
-	unsigned char jiami_way = 0;
-	unsigned char *content = 0;
-	unsigned short contentlen = 0;
-	unsigned char xor = 0;
-
-	if (len < GB32960_MIN_PACK_LEN)
+	if ((pdat == 0) || (len < GB32960_MIN_PACK_LEN))
 	{
 		return ;
 	}
 
-	if ((pdat == 0) || (len == 0))
+	while (len >= GB32960_MIN_PACK_LEN)
 	{
-		return ;
-	}
-
-	while (1)
-	{
-		phead = _find_sub_str(ptr,len,"\x23\x23",2);
-		if (phead == 0)
+		st = gb32960_locate_frame(ptr,len,&frame,&framelen);
+		if ((st == 0) || (frame == 0))
 		{
 			break;
 		}
-
-		//长度检验
-		if ((ptr + len - phead) < GB32960_MIN_PACK_LEN)
+		skipped = (unsigned int)(frame - ptr);
+		if ((skipped > len) || (framelen > (len - skipped)))
 		{
 			break;
 		}
-
-		cmd = *(phead + GB32960_CMD_OFFSET);
-		ack_flag = *(phead + GB32960_CMD_ACK_FLAG_OFFSET);
-		pvin = phead + GB32960_VIN_OFFSET;
-		jiami_way = *(phead + GB32960_JIAMI_WAY_OFFSET);
-		contentlen = ((*(phead + GB32960_CONTENT_LEN_OFFSET)) << 8) + (*(phead + GB32960_CONTENT_LEN_OFFSET + 1));
-		content = phead + GB32960_CONTENT_OFFSET;
-
-		//长度检验
-		if ((phead + GB32960_CONTENT_OFFSET + contentlen) >= (ptr+len))
+		if (st > 0)
 		{
-			break;
-		}
-		xor = *(phead + GB32960_CONTENT_OFFSET + contentlen);
+			unsigned char cmd = frame[GB32960_CMD_OFFSET];
+			unsigned char ack_flag = frame[GB32960_CMD_ACK_FLAG_OFFSET];
+			unsigned char *pvin = frame + GB32960_VIN_OFFSET;
+			unsigned char jiami_way = frame[GB32960_JIAMI_WAY_OFFSET];
+			unsigned short contentlen = (unsigned short)(((unsigned int)frame[GB32960_CONTENT_LEN_OFFSET] << 8) + frame[GB32960_CONTENT_LEN_OFFSET + 1]);
+			unsigned char *content = frame + GB32960_CONTENT_OFFSET;
+			unsigned char xor = frame[GB32960_CONTENT_OFFSET + contentlen];
 
-		DBG_Print(LEVEL3,"-------(link%d)GB32960 server ack-------\r\n"
-						"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
-						linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
-		gb32960_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
-		ptr = phead + GB32960_CONTENT_OFFSET + contentlen + 1;
-		len -= (GB32960_CONTENT_OFFSET + contentlen + 1);
+			DBG_Print(loglevel,"-------(link%d)%s-------\r\n"
+							"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
+							linkid,tag,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
+			if (deal) deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
+		}
+		else
+		{
+			DBG_Print(LEVEL1,"reject %s frame, bad BCC\r\n",tag);
+		}
+		ptr = frame + framelen;
+		len -= skipped + framelen;
 	}
 }
 
+void gb32960_ack_plat(INT8U linkid,void *pdat,unsigned int len)
+{
+	gb32960_dispatch_frames(linkid,pdat,len,gb32960_deal,"GB32960 server ack",LEVEL3);
+}
 
 void sddf_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_way,void *content,INT16U contentlen)
 {
@@ -7766,64 +8199,8 @@ void sddf_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_way,
 
 void sddf_ack_plat(INT8U linkid,void *pdat,unsigned int len)
 {
-	unsigned char *ptr = (unsigned char *)pdat;
-	unsigned char *phead = 0;
-
-	unsigned char cmd = 0;
-	unsigned char ack_flag = 0;
-	unsigned char *pvin = 0;
-	unsigned char jiami_way = 0;
-	unsigned char *content = 0;
-	unsigned short contentlen = 0;
-	unsigned char xor = 0;
-
-	if (len < GB32960_MIN_PACK_LEN)
-	{
-		return ;
-	}
-
-	if ((pdat == 0) || (len == 0))
-	{
-		return ;
-	}
-
-	while (1)
-	{
-		phead = _find_sub_str(ptr,len,"\x23\x23",2);
-		if (phead == 0)
-		{
-			break;
-		}
-
-		//长度检验
-		if ((ptr + len - phead) < GB32960_MIN_PACK_LEN)
-		{
-			break;
-		}
-
-		cmd = *(phead + GB32960_CMD_OFFSET);
-		ack_flag = *(phead + GB32960_CMD_ACK_FLAG_OFFSET);
-		pvin = phead + GB32960_VIN_OFFSET;
-		jiami_way = *(phead + GB32960_JIAMI_WAY_OFFSET);
-		contentlen = ((*(phead + GB32960_CONTENT_LEN_OFFSET)) << 8) + (*(phead + GB32960_CONTENT_LEN_OFFSET + 1));
-		content = phead + GB32960_CONTENT_OFFSET;
-
-		//长度检验
-		if ((phead + GB32960_CONTENT_OFFSET + contentlen) >= (ptr+len))
-		{
-			break;
-		}
-		xor = *(phead + GB32960_CONTENT_OFFSET + contentlen);
-
-		DBG_Print(LEVEL1,"-------(link%d)sddf server ack-------\r\n"
-						"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
-						linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
-		sddf_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
-		ptr = phead + GB32960_CONTENT_OFFSET + contentlen + 1;
-		len -= (GB32960_CONTENT_OFFSET + contentlen + 1);
-	}
+	gb32960_dispatch_frames(linkid,pdat,len,sddf_deal,"sddf server ack",LEVEL1);
 }
-
 
 typedef enum tagSOSStatus
 {
