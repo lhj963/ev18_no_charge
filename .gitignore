@@ -1,0 +1,12 @@
+﻿*.o
+*.obj
+*.d
+*.crf
+*.dep
+*.Bak
+*.bak
+*.uvgui.*
+*.uvguix.*
+JLinkLog.txt
+EventRecorderStub.scvd
+.git_backup_local/

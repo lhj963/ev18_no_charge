@@ -1,0 +1,54 @@
+#ifndef __STORE_MAP_H__
+#define __STORE_MAP_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//存储分配映射表 以扇区为单位进行分配
+#define ONE_SECTOR_SIZE 			(128 * 1024)
+
+
+//用户参数存放区  (前50个扇区 驱动保留)
+#define SYSPARAM_START_SECTOR		(50)	//用户参数起始扇区	
+#define SYSPARAM_SECTOR_CNT       	2									//用户参数占用扇区个数
+
+#define REAL_DATA_START_SECTOR		(SYSPARAM_START_SECTOR+SYSPARAM_SECTOR_CNT)	
+#define REAL_DATA_SECTOR_CNT       	250								
+
+#define MQ_DATA_START_SECTOR		(REAL_DATA_START_SECTOR+REAL_DATA_SECTOR_CNT)	
+#define MQ_DATA_SECTOR_CNT       	150									
+
+#define REAL_DATA1_START_SECTOR		(MQ_DATA_START_SECTOR+MQ_DATA_SECTOR_CNT)	
+#define REAL_DATA1_SECTOR_CNT       2								
+
+#define MQ_DATA1_START_SECTOR		(REAL_DATA1_START_SECTOR+REAL_DATA1_SECTOR_CNT)	
+#define MQ_DATA1_SECTOR_CNT       	50									
+
+#define REAL_DATA2_START_SECTOR		(MQ_DATA1_START_SECTOR+MQ_DATA1_SECTOR_CNT)	
+#define REAL_DATA2_SECTOR_CNT       2								
+
+#define MQ_DATA2_START_SECTOR		(REAL_DATA2_START_SECTOR+REAL_DATA2_SECTOR_CNT)	
+#define MQ_DATA2_SECTOR_CNT       	100									
+
+
+#define CAN_MSG1_START_SECTOR		(MQ_DATA2_START_SECTOR+MQ_DATA2_SECTOR_CNT)	
+#define CAN_MSG1_SECTOR_CNT       	100									
+
+#define CAN_MSG2_START_SECTOR		(CAN_MSG1_START_SECTOR+CAN_MSG1_SECTOR_CNT)	
+#define CAN_MSG2_SECTOR_CNT       	2									
+
+#define CAN_MSG3_START_SECTOR		(CAN_MSG2_START_SECTOR+CAN_MSG2_SECTOR_CNT)	
+#define CAN_MSG3_SECTOR_CNT       	100									
+
+#define BH_START_SECTOR				(CAN_MSG3_START_SECTOR+CAN_MSG3_SECTOR_CNT)	
+#define BH_SECTOR_CNT       		10									
+
+#define LOGINOUT_START_SECTOR		(BH_START_SECTOR+BH_SECTOR_CNT)	
+#define LOGINOUT_SECTOR_CNT       	10									
+
+
+#ifdef __cplusplus
+}
+#endif
+#endif
