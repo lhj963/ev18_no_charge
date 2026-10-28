@@ -1,12 +1,42 @@
-﻿*.o
+﻿# Keil object and dependency files
+*.o
 *.obj
 *.d
 *.crf
 *.dep
 *.Bak
 *.bak
+
+# Keil user interface state and logs
 *.uvgui.*
 *.uvguix.*
+*.plg
+*.tra
+*.iex
 JLinkLog.txt
 EventRecorderStub.scvd
+
+# Keil linker listings and build images
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.sct
+*.htm
+*.build_log.htm
+
+# Keil build and listing directories
+KeilMDK/lst/
+KeilMDK/output/
+
+# Source Insight workspace
+SI/
+
+# Local git backups
 .git_backup_local/
+
+# Release packages belong on GitHub Releases
+doc/*.zip
+BYSD_*.zip
