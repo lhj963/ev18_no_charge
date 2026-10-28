@@ -1,4 +1,5 @@
 #include "huichuan_mcu_ota.h"
+#include "san_dian_ota.h"
 
 //Poly 	: 0x04C11DB7
 //Init 	: 0xFFFFFFFF
@@ -251,6 +252,7 @@ typedef struct tagHCMCUOTA
 	unsigned int app_bag_id;
 
 	unsigned int transfer_max_len;			//一次最大传输长度
+	unsigned int isotp_cf_off;
 
 	unsigned char buf[512];
 }HCMCUOTA;
@@ -271,7 +273,12 @@ void sandian_mcu_data_arrive(unsigned int file_type,unsigned int offset,void *pd
 		s_stHCMCUOTA.app_data_arrive_flag = 1;
 	}
 
-	memcpy(s_stHCMCUOTA.buf,pdat,(datlen >= sizeof(s_stHCMCUOTA.buf)) ? sizeof(s_stHCMCUOTA.buf) : datlen);
+	{
+		unsigned int stored = (datlen >= sizeof(s_stHCMCUOTA.buf)) ? sizeof(s_stHCMCUOTA.buf) : datlen;
+		if (stored && pdat) memcpy(s_stHCMCUOTA.buf,pdat,stored);
+		if (file_type == 1) ota_note_file_offset(&s_stHCMCUOTA.drv_offset,offset,stored);
+		else if (file_type == 2) ota_note_file_offset(&s_stHCMCUOTA.app_offset,offset,stored);
+	}
 }
 
 
@@ -371,7 +378,6 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 		
 			s_stHCMCUOTA.next_drv_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.drv_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
-			s_stHCMCUOTA.drv_offset += s_stHCMCUOTA.transfer_max_len;
 		}
 		
 		if (s_stHCMCUOTA.transfer_max_len && (s_stHCMCUOTA.drv_tx_len < s_stHCMCUOTA.drv_len))
@@ -405,6 +411,7 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 					s_stHCMCUOTA.drv_cur_tx_len = s_stHCMCUOTA.drv_len - s_stHCMCUOTA.drv_tx_len;
 		
 					dat[0] = s_stHCMCUOTA.drv_cur_tx_len + 2;
+					s_stHCMCUOTA.isotp_cf_off = s_stHCMCUOTA.drv_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + s_stHCMCUOTA.drv_bag_id;
 					
@@ -426,6 +433,7 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 					}
 					
 					dat[0] = ((s_stHCMCUOTA.drv_cur_tx_len + 2) >> 8) | 0x10;
+					s_stHCMCUOTA.isotp_cf_off = 4;
 					dat[1] = s_stHCMCUOTA.drv_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + s_stHCMCUOTA.drv_bag_id;
@@ -442,30 +450,12 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 		
 			if ((canid == 0x7EE) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < s_stHCMCUOTA.drv_cur_tx_len)
+				sandian_isotp_send_cfs(s_stHCMCUOTA.channel,0x7E6,s_stHCMCUOTA.buf,sizeof(s_stHCMCUOTA.buf),&s_stHCMCUOTA.isotp_cf_off,s_stHCMCUOTA.drv_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (s_stHCMCUOTA.isotp_cf_off >= s_stHCMCUOTA.drv_cur_tx_len)
 				{
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = s_stHCMCUOTA.buf[4 + (i * 7) + 0];
-					dat[2] = s_stHCMCUOTA.buf[4 + (i * 7) + 1];
-					dat[3] = s_stHCMCUOTA.buf[4 + (i * 7) + 2];
-					dat[4] = s_stHCMCUOTA.buf[4 + (i * 7) + 3]; 									
-					dat[5] = s_stHCMCUOTA.buf[4 + (i * 7) + 4];
-					dat[6] = s_stHCMCUOTA.buf[4 + (i * 7) + 5];
-					dat[7] = s_stHCMCUOTA.buf[4 + (i * 7) + 6];
-		
-					sandian_tx(s_stHCMCUOTA.channel,0x7E6,dat,8);
-		
-					templen += 7;
-					i++;
-
-					//if ((i % 16) == 0) os_sleep(5);
+								s_stHCMCUOTA.drv_data_arrive_flag = 0;
+								send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.drv_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
 				}
-				
-				s_stHCMCUOTA.drv_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.drv_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
-				s_stHCMCUOTA.drv_offset += s_stHCMCUOTA.transfer_max_len;
 			}
 		}
 
@@ -498,7 +488,6 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 
 			s_stHCMCUOTA.next_app_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.app_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
-			s_stHCMCUOTA.app_offset += s_stHCMCUOTA.transfer_max_len;
 		}
 		
 		if (s_stHCMCUOTA.transfer_max_len && (s_stHCMCUOTA.app_tx_len < s_stHCMCUOTA.app_len))
@@ -539,6 +528,7 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 					s_stHCMCUOTA.app_cur_tx_len = s_stHCMCUOTA.app_len - s_stHCMCUOTA.app_tx_len;
 		
 					dat[0] = s_stHCMCUOTA.app_cur_tx_len + 2;
+					s_stHCMCUOTA.isotp_cf_off = s_stHCMCUOTA.app_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + s_stHCMCUOTA.app_bag_id;
 					
@@ -560,6 +550,7 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 					}
 					
 					dat[0] = ((s_stHCMCUOTA.app_cur_tx_len + 2) >> 8) | 0x10;
+					s_stHCMCUOTA.isotp_cf_off = 4;
 					dat[1] = s_stHCMCUOTA.app_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + s_stHCMCUOTA.app_bag_id;
@@ -577,30 +568,12 @@ void huichuan_mcu_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_M
 		
 			if ((canid == 0x7EE) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < s_stHCMCUOTA.app_cur_tx_len)
+				sandian_isotp_send_cfs(s_stHCMCUOTA.channel,0x7E6,s_stHCMCUOTA.buf,sizeof(s_stHCMCUOTA.buf),&s_stHCMCUOTA.isotp_cf_off,s_stHCMCUOTA.app_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (s_stHCMCUOTA.isotp_cf_off >= s_stHCMCUOTA.app_cur_tx_len)
 				{
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = s_stHCMCUOTA.buf[4 + (i * 7) + 0];
-					dat[2] = s_stHCMCUOTA.buf[4 + (i * 7) + 1];
-					dat[3] = s_stHCMCUOTA.buf[4 + (i * 7) + 2];
-					dat[4] = s_stHCMCUOTA.buf[4 + (i * 7) + 3]; 									
-					dat[5] = s_stHCMCUOTA.buf[4 + (i * 7) + 4];
-					dat[6] = s_stHCMCUOTA.buf[4 + (i * 7) + 5];
-					dat[7] = s_stHCMCUOTA.buf[4 + (i * 7) + 6];
-		
-					sandian_tx(s_stHCMCUOTA.channel,0x7E6,dat,8);
-		
-					templen += 7;
-					i++;
-
-					//if ((i % 16) == 0) os_sleep(5);
+					s_stHCMCUOTA.app_data_arrive_flag = 0;
+					send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.app_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
 				}
-
-				s_stHCMCUOTA.app_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stHCMCUOTA.app_offset),(void *)(s_stHCMCUOTA.transfer_max_len));
-				s_stHCMCUOTA.app_offset += s_stHCMCUOTA.transfer_max_len;
 			}
 		}
 

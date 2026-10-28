@@ -205,6 +205,8 @@ int tccp_unpack(void *pdat,unsigned int len,
 	UnpackResult unpack_ret = {0};
 	int ret = 0;
 	unsigned int packlen = 0;
+	unsigned int skipped = 0;
+	unsigned int remain = 0;
 	int cnt = 0;	//表示在pdat缓冲区中发现了cnt包符合该协议的数据包
 
 	if (len < TCCP_PACK_MIN_LEN)
@@ -229,14 +231,21 @@ int tccp_unpack(void *pdat,unsigned int len,
 			break;
 		}
 
-		if ((unsigned int)(pHead - pTemp) + TCCP_PACK_MIN_LEN > templen)
+		skipped = (unsigned int)(pHead - pTemp);
+		if (skipped > templen)
 		{
 			break;
 		}
-		packlen = TCCP_GET_PACK_LEN(pHead);
-		if ((unsigned int)(pHead - pTemp) + packlen > templen)
+		remain = templen - skipped;
+		if (remain < TCCP_PACK_MIN_LEN)
 		{
-			if (pCallBackError) pCallBackError(pHead,templen);
+			if (pCallBackError) pCallBackError(pHead,remain);
+			break;
+		}
+		packlen = TCCP_GET_PACK_LEN(pHead);
+		if ((packlen < TCCP_PACK_MIN_LEN) || (packlen > remain))
+		{
+			if (pCallBackError) pCallBackError(pHead,remain);
 
 			break;
 		}
@@ -263,9 +272,9 @@ int tccp_unpack(void *pdat,unsigned int len,
 		}
 
 		/* 指针后移 继续寻找数据帧头 */
-		if (templen > ((unsigned int)(pHead - pTemp) + packlen))
+		if (templen > (skipped + packlen))
 		{
-			templen -= (unsigned int)(pHead - pTemp) + packlen;
+			templen -= skipped + packlen;
 			pTemp = pHead + packlen;
 		}
 		else

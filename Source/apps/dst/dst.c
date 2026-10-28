@@ -911,62 +911,48 @@ void dst_gb32960_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jia
 void dst_ack_plat(INT8U linkid,void *pdat,unsigned int len)
 {
 	unsigned char *ptr = (unsigned char *)pdat;
-	unsigned char *phead = 0;
+	unsigned char *frame = 0;
+	unsigned int framelen = 0;
+	unsigned int skipped = 0;
+	int st = 0;
 
-	unsigned char cmd = 0;
-	unsigned char ack_flag = 0;
-	unsigned char *pvin = 0;
-	unsigned char jiami_way = 0;
-	unsigned char *content = 0;
-	unsigned short contentlen = 0;
-	unsigned char xor = 0;
-
-	if (len < GB32960_MIN_PACK_LEN)
+	if ((pdat == 0) || (len < GB32960_MIN_PACK_LEN))
 	{
 		return ;
 	}
 
-	if ((pdat == 0) || (len == 0))
+	while (len >= GB32960_MIN_PACK_LEN)
 	{
-		return ;
-	}
-
-	while (1)
-	{
-		phead = _find_sub_str(ptr,len,"\x23\x23",2);
-		if (phead == 0)
+		st = gb32960_locate_frame(ptr,len,&frame,&framelen);
+		if ((st == 0) || (frame == 0))
 		{
 			break;
 		}
-
-		//长度检验
-		if ((ptr + len - phead) < GB32960_MIN_PACK_LEN)
+		skipped = (unsigned int)(frame - ptr);
+		if ((skipped > len) || (framelen > (len - skipped)))
 		{
 			break;
 		}
-
-		cmd = *(phead + GB32960_CMD_OFFSET);
-		ack_flag = *(phead + GB32960_CMD_ACK_FLAG_OFFSET);
-		pvin = phead + GB32960_VIN_OFFSET;
-		jiami_way = *(phead + GB32960_JIAMI_WAY_OFFSET);
-		contentlen = ((*(phead + GB32960_CONTENT_LEN_OFFSET)) << 8) + (*(phead + GB32960_CONTENT_LEN_OFFSET + 1));
-		content = phead + GB32960_CONTENT_OFFSET;
-
-		//长度检验
-		if ((phead + GB32960_CONTENT_OFFSET + contentlen) >= (ptr+len))
+		if (st > 0)
 		{
-			break;
-		}
-		xor = *(phead + GB32960_CONTENT_OFFSET + contentlen);
+			unsigned char cmd = frame[GB32960_CMD_OFFSET];
+			unsigned char ack_flag = frame[GB32960_CMD_ACK_FLAG_OFFSET];
+			unsigned char *pvin = frame + GB32960_VIN_OFFSET;
+			unsigned char jiami_way = frame[GB32960_JIAMI_WAY_OFFSET];
+			unsigned short contentlen = (unsigned short)(((unsigned int)frame[GB32960_CONTENT_LEN_OFFSET] << 8) + frame[GB32960_CONTENT_LEN_OFFSET + 1]);
+			unsigned char *content = frame + GB32960_CONTENT_OFFSET;
+			unsigned char xor = frame[GB32960_CONTENT_OFFSET + contentlen];
 
-		DBG_Print(LEVEL3,"-------(link%d)dst server ack-------\r\n"
-						"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
-						linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
-		dst_gb32960_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
-		ptr = phead + GB32960_CONTENT_OFFSET + contentlen + 1;
-		len -= (GB32960_CONTENT_OFFSET + contentlen + 1);
+			DBG_Print(LEVEL3,"-------(link%d)dst server ack-------\r\n"
+							"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
+							linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
+			dst_gb32960_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
+		}
+		else
+		{
+			DBG_Print(LEVEL1,"reject dst frame, bad BCC\r\n");
+		}
+		ptr = frame + framelen;
+		len -= skipped + framelen;
 	}
 }
-
-
-

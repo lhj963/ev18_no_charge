@@ -39,6 +39,13 @@ extern INT8U bcd_to_dec(INT8U bcd);
 
 extern INT8U XOR_Check(INT8U *pdat,INT32U len);
 
+/* Platform OTA frames must not reach a shell unless ENABLE_PLATFORM_REMOTE_WGET is 1
+ * and the built command is a wget of an allowlisted file and URL. Default is off. */
+#ifndef ENABLE_PLATFORM_REMOTE_WGET
+#define ENABLE_PLATFORM_REMOTE_WGET 0
+#endif
+extern int platform_remote_wget_allowed(const char *cmd);
+
 extern char *GetSubString(char *str,char *pSubStr1,char *pSubStr2,char *pOutBuf,unsigned int outbuflen);
 extern void *ReverseFindSubStr(void *pSrc,int ulSrcLen,void *pDes,int ulDesLen);
 extern void *_find_sub_str(void *pbuf,unsigned int ulBufLen,void *SubStr,unsigned int ulSubStrLen);

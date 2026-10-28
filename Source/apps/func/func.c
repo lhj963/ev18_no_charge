@@ -366,6 +366,94 @@ INT8U bcd_to_dec(INT8U bcd)
 }
 
 
+#if ENABLE_PLATFORM_REMOTE_WGET
+static int platform_url_char_ok(unsigned char c)
+{
+	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+	{
+		return 1;
+	}
+	switch (c)
+	{
+	case '.':
+	case '-':
+	case '_':
+	case '/':
+	case ':':
+	case '?':
+	case '=':
+	case '%':
+	case '~':
+	case '@':
+		return 1;
+	default:
+		return 0;
+	}
+}
+#endif
+
+int platform_remote_wget_allowed(const char *cmd)
+{
+#if !ENABLE_PLATFORM_REMOTE_WGET
+	(void)cmd;
+	return 0;
+#else
+	static const char prefix[] = "ATEX=<linuxcmd:wget -O /data/";
+	static const char *files[] = {
+		"box.bin ",
+		"sandian_mcu.zip ",
+		"sandian_bms.zip ",
+		"sandian_vcu.zip "
+	};
+	const char *p = 0;
+	unsigned int i = 0;
+	unsigned int n = 0;
+	int file_ok = 0;
+
+	if (cmd == 0)
+	{
+		return 0;
+	}
+	n = (unsigned int)strlen(prefix);
+	if (strncmp(cmd,prefix,n) != 0)
+	{
+		return 0;
+	}
+	p = cmd + n;
+	for (i = 0; i < (unsigned int)(sizeof(files) / sizeof(files[0])); i++)
+	{
+		unsigned int fl = (unsigned int)strlen(files[i]);
+		if (strncmp(p,files[i],fl) == 0)
+		{
+			p += fl;
+			file_ok = 1;
+			break;
+		}
+	}
+	if (!file_ok)
+	{
+		return 0;
+	}
+	if ((strncmp(p,"http://",7) != 0) && (strncmp(p,"ftp://",6) != 0))
+	{
+		return 0;
+	}
+	n = (unsigned int)strlen(p);
+	if ((n < 8) || (n > 240) || (p[n - 1] != '>'))
+	{
+		return 0;
+	}
+	for (i = 0; i + 1 < n; i++)
+	{
+		if (!platform_url_char_ok((unsigned char)p[i]))
+		{
+			return 0;
+		}
+	}
+	return 1;
+#endif
+}
+
 INT8U XOR_Check(INT8U *pdat,INT32U len)
 {
 	INT32U i = 0;

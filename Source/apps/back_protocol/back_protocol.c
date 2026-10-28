@@ -64,7 +64,7 @@ static void *bp_find_sub_str(void *pbuf,unsigned int ulBufLen,
 		return 0;
 	}
 
-	for (i = 0; i < ulBufLen; i++)
+	for (i = 0; (i + ulSubStrLen) <= ulBufLen; i++)
 	{
 		if (*(pSrc + i) == *pSubStr)	//找到第一个字节
 		{
@@ -126,6 +126,15 @@ unsigned int bp_pack(unsigned short msgid,void *psn,unsigned int sn_len,
 		memcpy(ptr + len,psn,templen);
 	}
 	len += BP_SN_LEN;
+
+	if (contentlen < 0)
+	{
+		contentlen = 0;
+	}
+	if ((unsigned int)contentlen > (outbuflen - BP_PACK_MIN_LEN))
+	{
+		contentlen = (int)(outbuflen - BP_PACK_MIN_LEN);
+	}
 
 	//数据长度
 	ptr[len++] = contentlen >> 8;
@@ -191,7 +200,7 @@ static int bp_checkpack(void *pdat,unsigned int len)
 
 	//校验比对
 	temp = ptr[len - 1];
-	if (temp != xor_check(ptr + BP_MSG_ID_OFFSET,len-1-BP_MSG_ID_OFFSET))
+	if (temp != bp_xor_check(ptr + BP_MSG_ID_OFFSET,len-1-BP_MSG_ID_OFFSET))
 	{
 		return BP_ERROR_XOR;
 	}
@@ -235,6 +244,8 @@ int bp_unpack(void *pdat,unsigned int len,
 	BPUnpackResult unpack_ret = {0};
 	int ret = 0;
 	unsigned int packlen = 0;
+	unsigned int skipped = 0;
+	unsigned int remain = 0;
 	int cnt = 0;	//表示在pdat缓冲区中发现了cnt包符合该协议的数据包
 
 	if (len < BP_PACK_MIN_LEN)
@@ -259,10 +270,21 @@ int bp_unpack(void *pdat,unsigned int len,
 			break;
 		}
 
-		packlen = BP_GET_PACK_LEN(pHead);
-		if (packlen > templen)
+		skipped = (unsigned int)(pHead - pTemp);
+		if (skipped > templen)
 		{
-			if (pCallBackError) pCallBackError(pHead,templen,BP_ERROR_DATA_LEN_NOT_MATCH);
+			break;
+		}
+		remain = templen - skipped;
+		if (remain < BP_PACK_MIN_LEN)
+		{
+			if (pCallBackError) pCallBackError(pHead,remain,BP_ERROR_DATA_LEN_TOO_SMALL);
+			break;
+		}
+		packlen = BP_GET_PACK_LEN(pHead);
+		if ((packlen < BP_PACK_MIN_LEN) || (packlen > remain))
+		{
+			if (pCallBackError) pCallBackError(pHead,remain,BP_ERROR_DATA_LEN_NOT_MATCH);
 
 			break;
 		}
@@ -281,9 +303,9 @@ int bp_unpack(void *pdat,unsigned int len,
 		}
 
 		/* 指针后移 继续寻找数据帧头 */
-		if (templen > packlen)
+		if (templen > (skipped + packlen))
 		{
-			templen -= packlen;
+			templen -= skipped + packlen;
 			pTemp = pHead + packlen;
 		}
 		else

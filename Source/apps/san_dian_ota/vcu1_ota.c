@@ -1,4 +1,5 @@
 #include "vcu1_ota.h"
+#include "san_dian_ota.h"
 
 //Poly 	: 0x04C11DB7
 //Init 	: 0xFFFFFFFF
@@ -275,6 +276,7 @@ typedef struct tagVCU1OTA
 	unsigned int app_bag_id;
 
 	unsigned int transfer_max_len;			//一次最大传输长度
+	unsigned int isotp_cf_off;
 
 	unsigned char buf[512];
 }VCU1OTA;
@@ -295,7 +297,12 @@ void sandian_vcu1_data_arrive(unsigned int file_type,unsigned int offset,void *p
 		s_stVCU1OTA.app_data_arrive_flag = 1;
 	}
 
-	memcpy(s_stVCU1OTA.buf,pdat,(datlen >= sizeof(s_stVCU1OTA.buf)) ? sizeof(s_stVCU1OTA.buf) : datlen);
+	{
+		unsigned int stored = (datlen >= sizeof(s_stVCU1OTA.buf)) ? sizeof(s_stVCU1OTA.buf) : datlen;
+		if (stored && pdat) memcpy(s_stVCU1OTA.buf,pdat,stored);
+		if (file_type == 21) ota_note_file_offset(&s_stVCU1OTA.drv_offset,offset,stored);
+		else if (file_type == 22) ota_note_file_offset(&s_stVCU1OTA.app_offset,offset,stored);
+	}
 }
 
 
@@ -395,7 +402,6 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 
 			s_stVCU1OTA.next_drv_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.drv_offset),(void *)(s_stVCU1OTA.transfer_max_len));
-			s_stVCU1OTA.drv_offset += s_stVCU1OTA.transfer_max_len;
 		}
 		
 		if (s_stVCU1OTA.transfer_max_len && (s_stVCU1OTA.drv_tx_len < s_stVCU1OTA.drv_len))
@@ -429,6 +435,7 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 					s_stVCU1OTA.drv_cur_tx_len = s_stVCU1OTA.drv_len - s_stVCU1OTA.drv_tx_len;
 		
 					dat[0] = s_stVCU1OTA.drv_cur_tx_len + 2;
+					s_stVCU1OTA.isotp_cf_off = s_stVCU1OTA.drv_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + s_stVCU1OTA.drv_bag_id;
 					
@@ -450,6 +457,7 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 					}
 					
 					dat[0] = ((s_stVCU1OTA.drv_cur_tx_len + 2) >> 8) | 0x10;
+					s_stVCU1OTA.isotp_cf_off = 4;
 					dat[1] = s_stVCU1OTA.drv_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + s_stVCU1OTA.drv_bag_id;
@@ -466,31 +474,12 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 		
 			if ((canid == 0x7EF) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < s_stVCU1OTA.drv_cur_tx_len)
+				sandian_isotp_send_cfs(s_stVCU1OTA.channel,0x7E7,s_stVCU1OTA.buf,sizeof(s_stVCU1OTA.buf),&s_stVCU1OTA.isotp_cf_off,s_stVCU1OTA.drv_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (s_stVCU1OTA.isotp_cf_off >= s_stVCU1OTA.drv_cur_tx_len)
 				{
-					os_sleep(2);
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = s_stVCU1OTA.buf[4 + (i * 7) + 0];
-					dat[2] = s_stVCU1OTA.buf[4 + (i * 7) + 1];
-					dat[3] = s_stVCU1OTA.buf[4 + (i * 7) + 2];
-					dat[4] = s_stVCU1OTA.buf[4 + (i * 7) + 3]; 									
-					dat[5] = s_stVCU1OTA.buf[4 + (i * 7) + 4];
-					dat[6] = s_stVCU1OTA.buf[4 + (i * 7) + 5];
-					dat[7] = s_stVCU1OTA.buf[4 + (i * 7) + 6];
-		
-					sandian_tx(s_stVCU1OTA.channel,0x7E7,dat,8);
-		
-					templen += 7;
-					i++;
-
-					if ((i % 16) == 0) os_sleep(5);
+								s_stVCU1OTA.drv_data_arrive_flag = 0;
+								send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.drv_offset),(void *)(s_stVCU1OTA.transfer_max_len));
 				}
-				
-				s_stVCU1OTA.drv_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.drv_offset),(void *)(s_stVCU1OTA.transfer_max_len));
-				s_stVCU1OTA.drv_offset += s_stVCU1OTA.transfer_max_len;
 			}
 		}
 
@@ -523,7 +512,6 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 		
 			s_stVCU1OTA.next_app_bag_flag = 1;
 			send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.app_offset),(void *)(s_stVCU1OTA.transfer_max_len));
-			s_stVCU1OTA.app_offset += s_stVCU1OTA.transfer_max_len;
 		}
 		
 		if (s_stVCU1OTA.transfer_max_len && (s_stVCU1OTA.app_tx_len < s_stVCU1OTA.app_len))
@@ -565,6 +553,7 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 					s_stVCU1OTA.app_cur_tx_len = s_stVCU1OTA.app_len - s_stVCU1OTA.app_tx_len;
 		
 					dat[0] = s_stVCU1OTA.app_cur_tx_len + 2;
+					s_stVCU1OTA.isotp_cf_off = s_stVCU1OTA.app_cur_tx_len;
 					dat[1] = 0x36;
 					dat[2] = 0x01 + s_stVCU1OTA.app_bag_id;
 					
@@ -586,6 +575,7 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 					}
 					
 					dat[0] = ((s_stVCU1OTA.app_cur_tx_len + 2) >> 8) | 0x10;
+					s_stVCU1OTA.isotp_cf_off = 4;
 					dat[1] = s_stVCU1OTA.app_cur_tx_len + 2;
 					dat[2] = 0x36;
 					dat[3] = 0x01 + s_stVCU1OTA.app_bag_id;
@@ -603,31 +593,12 @@ void vcu1_transfer_file_proc(CanRxMsg *pMsg,unsigned int file_type,CAN_VCU_OTA_S
 		
 			if ((canid == 0x7EF) && ((pMsg->Data[0] & 0xF0) == 0x30))
 			{
-				templen = 4;
-				i = 0;
-				while (templen < s_stVCU1OTA.app_cur_tx_len)
+				sandian_isotp_send_cfs(s_stVCU1OTA.channel,0x7E7,s_stVCU1OTA.buf,sizeof(s_stVCU1OTA.buf),&s_stVCU1OTA.isotp_cf_off,s_stVCU1OTA.app_cur_tx_len,pMsg->Data[1],pMsg->Data[2]);
+				if (s_stVCU1OTA.isotp_cf_off >= s_stVCU1OTA.app_cur_tx_len)
 				{
-					os_sleep(2);
-					dat[0] = 0x20 + ((i+1) % 16);
-					dat[1] = s_stVCU1OTA.buf[4 + (i * 7) + 0];
-					dat[2] = s_stVCU1OTA.buf[4 + (i * 7) + 1];
-					dat[3] = s_stVCU1OTA.buf[4 + (i * 7) + 2];
-					dat[4] = s_stVCU1OTA.buf[4 + (i * 7) + 3]; 									
-					dat[5] = s_stVCU1OTA.buf[4 + (i * 7) + 4];
-					dat[6] = s_stVCU1OTA.buf[4 + (i * 7) + 5];
-					dat[7] = s_stVCU1OTA.buf[4 + (i * 7) + 6];
-		
-					sandian_tx(s_stVCU1OTA.channel,0x7E7,dat,8);
-		
-					templen += 7;
-					i++;
-
-					if ((i % 16) == 0) os_sleep(5);
+					s_stVCU1OTA.app_data_arrive_flag = 0;
+					send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.app_offset),(void *)(s_stVCU1OTA.transfer_max_len));
 				}
-
-				s_stVCU1OTA.app_data_arrive_flag = 0;
-				send_msg(S_MSG_GET_FILE_DATA,(void *)file_type,(void *)(s_stVCU1OTA.app_offset),(void *)(s_stVCU1OTA.transfer_max_len));
-				s_stVCU1OTA.app_offset += s_stVCU1OTA.transfer_max_len;
 			}
 		}
 

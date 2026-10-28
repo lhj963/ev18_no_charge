@@ -159,6 +159,7 @@ typedef struct tagCAN_BUS_OTA
 
 	unsigned char cur_tx_app_block_idx;
 	unsigned char cur_status;
+	unsigned int isotp_cf_off;
 
 	unsigned char buf[2048];
 }CAN_BUS_OTA;
@@ -189,6 +190,13 @@ extern void send_info_to_yibiao(void);
 
 
 extern void sandian_tx(unsigned char channel,unsigned int canid,unsigned char *pdat,unsigned char datlen);
+
+extern void ota_note_file_offset(unsigned int *cursor,unsigned int offset,unsigned int stored);
+
+extern void sandian_isotp_send_cfs(unsigned char channel,unsigned int canid,
+	const unsigned char *buf,unsigned int buflen,
+	unsigned int *off,unsigned int end,
+	unsigned char block_size,unsigned char stmin);
 
 extern void file_data_arrive(unsigned int file_type,unsigned int offset,void *pdat,unsigned int datlen);
 

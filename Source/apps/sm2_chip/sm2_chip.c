@@ -66,7 +66,7 @@ unsigned int sm2_chip_read_public_key(void *pOut,unsigned int outbuflen)
 
 	if (is_sm2_chip_ok() == 0)
 	{
-		return 64;
+		return 0;
 	}
 	wait_sm2_chip_sem();
 	if (get_chip_type() == 0)
@@ -88,7 +88,7 @@ unsigned int sm2_chip_read_public_keyB(void *pOut,unsigned int outbuflen)
 
 	if (is_sm2_chip_ok() == 0)
 	{
-		return 64;
+		return 0;
 	}
 	wait_sm2_chip_sem();
 	if (get_chip_type() == 0)
@@ -113,7 +113,7 @@ unsigned int sm2_chip_read_sign_data_with_z(void *chip_id,
 
 	if (is_sm2_chip_ok() == 0)
 	{
-		return 64;
+		return 0;
 	}
 	wait_sm2_chip_sem();
 	if (get_chip_type() == 0)
@@ -145,7 +145,7 @@ int sm2_chip_write_public_private_keyB(void *public_key,
 
 	if (is_sm2_chip_ok() == 0)
 	{
-		return 1;
+		return 0;
 	}
 	wait_sm2_chip_sem();
 	if (get_chip_type() == 0)
@@ -169,14 +169,9 @@ unsigned int sm2_chip_private_key_decrypt_encryptB(unsigned char type,
 
 	if (is_sm2_chip_ok() == 0)
 	{
-		if (type == 0)
-		{
-			return (len - 96);
-		}
-		else
-		{
-			return (len + 96);
-		}
+		(void)type;
+		(void)len;
+		return 0;
 	}
 	wait_sm2_chip_sem();
 	if (get_chip_type() == 0)

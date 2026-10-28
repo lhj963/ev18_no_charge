@@ -95,15 +95,23 @@ unsigned int cn6_pcak(unsigned char cmd,unsigned char ver,unsigned char entype,
 	//命令单元
 	ptr[rlen++] = cmd;
 
-	//VIN
+	//VIN always occupies CN6_VIN_LEN so a short VIN cannot wrap the escape scan
+	memset(ptr + rlen,0,CN6_VIN_LEN);
 	if (s_stSJZ_PLATSYSPARAM.vin_len)
 	{
-		memcpy(ptr+rlen,s_stSJZ_PLATSYSPARAM.vin,s_stSJZ_PLATSYSPARAM.vin_len);
+		unsigned int vlen = s_stSJZ_PLATSYSPARAM.vin_len;
+		if (vlen > CN6_VIN_LEN) vlen = CN6_VIN_LEN;
+		memcpy(ptr+rlen,s_stSJZ_PLATSYSPARAM.vin,vlen);
 	}
-	rlen += s_stSJZ_PLATSYSPARAM.vin_len;
+	rlen += CN6_VIN_LEN;
 
 	ptr[rlen++] = ver;
 	ptr[rlen++] = entype;
+
+	if (datlen > (buflen - CN6_MIN_LEN))
+	{
+		datlen = buflen - CN6_MIN_LEN;
+	}
 
 	//数据单元长度
 	ptr[rlen++] = datlen >> 8;
@@ -111,14 +119,7 @@ unsigned int cn6_pcak(unsigned char cmd,unsigned char ver,unsigned char entype,
 
 	if (DataUnit)
 	{
-		if (datlen >= (buflen - CN6_MIN_LEN))
-		{
-			templen = buflen - CN6_MIN_LEN;
-		}
-		else
-		{
-			templen = datlen;
-		}
+		templen = datlen;
 		if (templen) memcpy(ptr+rlen,DataUnit,templen);
 		rlen += templen;
 	}
@@ -144,7 +145,7 @@ static void *hd_find_sub_str(void *pbuf,unsigned int ulBufLen,
 		return 0;
 	}
 
-	for (i = 0; i < ulBufLen; i++)
+	for (i = 0; (i + ulSubStrLen) <= ulBufLen; i++)
 	{
 		if (*(pSrc + i) == *pSubStr)	//找到第一个字节
 		{
@@ -179,8 +180,15 @@ void hd_zy(char send_or_recv,void *pdat,unsigned int datlen)
 	}
 
 	//数据还需要转义
-	ptr += CN6_HEAD_LEN+CN6_CMD_LEN+CN6_VIN_LEN+CN6_VER_LEN+CN6_ENTYPE_LEN+CN6_DATAUNIT_LEN;
-	slen = rlen - (CN6_HEAD_LEN+CN6_CMD_LEN+CN6_VIN_LEN+CN6_VER_LEN+CN6_ENTYPE_LEN+CN6_DATAUNIT_LEN);
+	{
+		unsigned int hdr = CN6_HEAD_LEN+CN6_CMD_LEN+CN6_VIN_LEN+CN6_VER_LEN+CN6_ENTYPE_LEN+CN6_DATAUNIT_LEN;
+		if (rlen <= hdr)
+		{
+			return ;
+		}
+		ptr += hdr;
+		slen = rlen - hdr;
+	}
 
 	while (1)
 	{
@@ -248,7 +256,6 @@ unsigned int sjz_plat_unpack(void *pdat,unsigned int len,
 	unsigned char *pTemp = 0;
 	unsigned char *ptr = (unsigned char *)pdat;
 	unsigned int cnt = 0;
-	unsigned int templen = 0;
 	unsigned int onepacklen = 0;
 	unsigned char cmd = 0;
 	unsigned char *vin = 0;
@@ -261,43 +268,65 @@ unsigned int sjz_plat_unpack(void *pdat,unsigned int len,
 
 	while (1)
 	{
+		unsigned int skipped = 0;
+		unsigned char calc = 0;
+
 		if (slen < CN6_MIN_LEN)
 		{
 			if (pErrorHandler) pErrorHandler(ptr,slen);
 			break;
 		}
 
-		//寻找起始头
 		pTemp = hd_find_sub_str(ptr,slen,"\x23\x23",2);
-		if (pTemp)
+		if (pTemp == 0)
 		{
-			onepacklen = HD_GET_ONE_PACK_LEN(pTemp);
-			templen = slen - (pTemp - ptr);
-			if (templen >= onepacklen)
-			{
-				//转义
-				hd_zy(0,pTemp,onepacklen);
-				
-				//校验
-				if (1)
-				{
-					cmd = HD_GET_CMD(pTemp);
-					vin = HD_GET_VIN_PTR(pTemp);
-					ver = HD_GET_VER(pTemp);
-					entype = HD_GET_ENTYPE(pTemp);
-					content = HD_GET_CONTENT_PTR(pTemp);
-					contentlen = HD_GET_CONTENT_LEN(pTemp);
-					cnt++;
-					
-					//回调处理
-					if (pHandler) pHandler(cmd,vin,ver,entype,content,contentlen);
-				}
-			}
-			ptr = pTemp + 2;
+			if (pErrorHandler && slen) pErrorHandler(ptr,slen);
+			break;
+		}
+
+		skipped = (unsigned int)(pTemp - ptr);
+		if (skipped > slen)
+		{
+			break;
+		}
+		slen -= skipped;
+		ptr = pTemp;
+		if (slen < CN6_MIN_LEN)
+		{
+			if (pErrorHandler) pErrorHandler(ptr,slen);
+			break;
+		}
+
+		contentlen = HD_GET_CONTENT_LEN(ptr);
+		onepacklen = (unsigned int)CN6_MIN_LEN + contentlen;
+		if ((onepacklen < contentlen) || (slen < onepacklen))
+		{
+			if (pErrorHandler) pErrorHandler(ptr,slen);
+			break;
+		}
+
+		hd_zy(0,ptr,onepacklen);
+		calc = CommSumCheckCode(ptr + CN6_CMD_OFFSET,onepacklen - CN6_HEAD_LEN - CN6_CHECK_LEN);
+		if (calc == ptr[onepacklen - 1])
+		{
+			cmd = HD_GET_CMD(ptr);
+			vin = HD_GET_VIN_PTR(ptr);
+			ver = HD_GET_VER(ptr);
+			entype = HD_GET_ENTYPE(ptr);
+			content = HD_GET_CONTENT_PTR(ptr);
+			contentlen = HD_GET_CONTENT_LEN(ptr);
+			cnt++;
+			if (pHandler) pHandler(cmd,vin,ver,entype,content,contentlen);
+			ptr += onepacklen;
+			slen -= onepacklen;
+		}
+		else if (slen > 2)
+		{
+			ptr += 2;
+			slen -= 2;
 		}
 		else
 		{
-			if (pErrorHandler && slen) pErrorHandler(ptr,slen);
 			break;
 		}
 	}
@@ -360,13 +389,17 @@ unsigned int sjz_plat_login_pack(unsigned char rtime[6],
 void sjz_plat_init(void *vin,unsigned int vin_len,void *chipid,unsigned int chipid_len,
 					void *pubkey,unsigned int pubkey_len)
 {
+	if (vin_len > sizeof(s_stSJZ_PLATSYSPARAM.vin)) vin_len = sizeof(s_stSJZ_PLATSYSPARAM.vin);
+	if (chipid_len > sizeof(s_stSJZ_PLATSYSPARAM.chipid)) chipid_len = sizeof(s_stSJZ_PLATSYSPARAM.chipid);
+	if (pubkey_len > sizeof(s_stSJZ_PLATSYSPARAM.pubkey)) pubkey_len = sizeof(s_stSJZ_PLATSYSPARAM.pubkey);
+
 	s_stSJZ_PLATSYSPARAM.vin_len = vin_len;
 	s_stSJZ_PLATSYSPARAM.chipid_len = chipid_len;
 	s_stSJZ_PLATSYSPARAM.pubkey_len = pubkey_len;
 
-	memcpy(s_stSJZ_PLATSYSPARAM.vin,vin,vin_len);
-	memcpy(s_stSJZ_PLATSYSPARAM.chipid,chipid,chipid_len);
-	memcpy(s_stSJZ_PLATSYSPARAM.pubkey,pubkey,pubkey_len);
+	if (vin && vin_len) memcpy(s_stSJZ_PLATSYSPARAM.vin,vin,vin_len);
+	if (chipid && chipid_len) memcpy(s_stSJZ_PLATSYSPARAM.chipid,chipid,chipid_len);
+	if (pubkey && pubkey_len) memcpy(s_stSJZ_PLATSYSPARAM.pubkey,pubkey,pubkey_len);
 }
 
 //定位状态 pos_status: 0 已定位 1 未定位

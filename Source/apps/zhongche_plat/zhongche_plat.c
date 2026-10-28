@@ -772,63 +772,51 @@ void zhongche_deal(INT8U linkid,INT8U cmd,INT8U ack_flag,void *pvin,INT8U jiami_
 void zhongche_analyze(INT8U linkid,void *pdat,unsigned int len)
 {
 	unsigned char *ptr = (unsigned char *)pdat;
-	unsigned char *phead = 0;
+	unsigned char *frame = 0;
+	unsigned int framelen = 0;
+	unsigned int skipped = 0;
+	int st = 0;
 
-	unsigned char cmd = 0;
-	unsigned char ack_flag = 0;
-	unsigned char *pvin = 0;
-	unsigned char jiami_way = 0;
-	unsigned char *content = 0;
-	unsigned short contentlen = 0;
-	unsigned char xor = 0;
-
-	if (len < MIN_PACK_LEN)
+	if ((pdat == 0) || (len < MIN_PACK_LEN))
 	{
 		return ;
 	}
 
-	if ((pdat == 0) || (len == 0))
+	while (len >= MIN_PACK_LEN)
 	{
-		return ;
-	}
-
-	while (1)
-	{
-		phead = _find_sub_str(ptr,len,"\x23\x23",2);
-		if (phead == 0)
+		st = gb32960_locate_frame(ptr,len,&frame,&framelen);
+		if ((st == 0) || (frame == 0))
 		{
 			break;
 		}
-
-		//长度检验
-		if ((ptr + len - phead) < MIN_PACK_LEN)
+		skipped = (unsigned int)(frame - ptr);
+		if ((skipped > len) || (framelen > (len - skipped)))
 		{
 			break;
 		}
-
-		cmd = *(phead + CMD_OFFSET);
-		ack_flag = *(phead + CMD_ACK_FLAG_OFFSET);
-		pvin = phead + VIN_OFFSET;
-		jiami_way = *(phead + JIAMI_WAY_OFFSET);
-		contentlen = ((*(phead + CONTENT_LEN_OFFSET)) << 8) + (*(phead + CONTENT_LEN_OFFSET + 1));
-		content = phead + CONTENT_OFFSET;
-
-		//长度检验
-		if ((phead + CONTENT_OFFSET + contentlen) >= (ptr+len))
+		if (st > 0)
 		{
-			break;
-		}
-		xor = *(phead + CONTENT_OFFSET + contentlen);
+			unsigned char cmd = frame[CMD_OFFSET];
+			unsigned char ack_flag = frame[CMD_ACK_FLAG_OFFSET];
+			unsigned char *pvin = frame + VIN_OFFSET;
+			unsigned char jiami_way = frame[JIAMI_WAY_OFFSET];
+			unsigned short contentlen = (unsigned short)(((unsigned int)frame[CONTENT_LEN_OFFSET] << 8) + frame[CONTENT_LEN_OFFSET + 1]);
+			unsigned char *content = frame + CONTENT_OFFSET;
+			unsigned char xor = frame[CONTENT_OFFSET + contentlen];
 
-		DBG_Print(LEVEL2,"-------(link%d)zhongche server ack-------\r\n"
-						"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
-						linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
-		zhongche_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
-		ptr = phead + CONTENT_OFFSET + contentlen + 1;
-		len -= (CONTENT_OFFSET + contentlen + 1);
+			DBG_Print(LEVEL2,"-------(link%d)zhongche server ack-------\r\n"
+							"cmd:%02X ack:%02X vin:%s jiami:%02X dataunitlen:%d xor:%02X\r\n",
+							linkid,cmd,ack_flag,pvin,jiami_way,contentlen,xor);
+			zhongche_deal(linkid,cmd,ack_flag,pvin,jiami_way,content,contentlen);
+		}
+		else
+		{
+			DBG_Print(LEVEL1,"reject zhongche frame, bad BCC\r\n");
+		}
+		ptr = frame + framelen;
+		len -= skipped + framelen;
 	}
 }
-
 
 unsigned char leap_month_day[] = 
 {0,31,29,31,30,31,30,31,31,30,31,30,31};
